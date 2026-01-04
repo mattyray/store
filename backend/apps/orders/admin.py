@@ -26,7 +26,7 @@ class CartAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ['photo_title', 'variant_description', 'quantity', 'unit_price', 'total_price', 'aluminyze_order_id']
+    readonly_fields = ['item_title', 'item_description', 'quantity', 'unit_price', 'total_price', 'aluminyze_order_id']
 
     def has_add_permission(self, request, obj=None):
         return False
