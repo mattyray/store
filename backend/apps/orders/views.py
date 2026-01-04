@@ -44,28 +44,38 @@ class CartItemView(APIView):
     """Add items to cart."""
 
     def post(self, request):
-        """Add item to cart."""
+        """Add item to cart - supports both variants and products."""
         serializer = AddToCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         cart = get_or_create_cart(request)
-        variant_id = serializer.validated_data['variant_id']
+        variant_id = serializer.validated_data.get('variant_id')
+        product_id = serializer.validated_data.get('product_id')
         quantity = serializer.validated_data['quantity']
 
-        variant = ProductVariant.objects.get(id=variant_id)
-
-        cart_item, created = CartItem.objects.get_or_create(
-            cart=cart,
-            variant=variant,
-            defaults={'quantity': quantity}
-        )
+        if variant_id:
+            variant = ProductVariant.objects.get(id=variant_id)
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                variant=variant,
+                product=None,
+                defaults={'quantity': quantity}
+            )
+        else:
+            product = Product.objects.get(id=product_id)
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=product,
+                variant=None,
+                defaults={'quantity': quantity}
+            )
 
         if not created:
             cart_item.quantity += quantity
             cart_item.save()
 
         return Response(
-            CartSerializer(cart).data,
+            CartSerializer(cart, context={'request': request}).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
 
@@ -142,8 +152,8 @@ class OrderTrackingView(APIView):
                 'created_at': order.created_at.isoformat(),
                 'items': [
                     {
-                        'title': item.photo_title,
-                        'description': item.variant_description,
+                        'title': item.item_title,
+                        'description': item.item_description,
                         'quantity': item.quantity,
                     }
                     for item in order.items.all()
