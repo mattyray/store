@@ -8,7 +8,7 @@ from .emails import send_shipping_notification
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
-    readonly_fields = ['variant', 'quantity', 'total_price']
+    readonly_fields = ['variant', 'product', 'quantity', 'total_price']
 
     def has_add_permission(self, request, obj=None):
         return False
