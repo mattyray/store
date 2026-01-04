@@ -41,7 +41,8 @@ export interface ProductVariant {
 
 export interface CartItem {
   id: number;
-  variant: ProductVariant & {
+  item_type: 'variant' | 'product';
+  variant?: ProductVariant & {
     photo: {
       id: number;
       title: string;
@@ -49,8 +50,19 @@ export interface CartItem {
       thumbnail: string | null;
     };
   };
+  product?: {
+    id: number;
+    title: string;
+    slug: string;
+    image: string;
+    product_type: string;
+  };
   quantity: number;
+  unit_price: string;
   total_price: string;
+  title: string;
+  description: string;
+  image: string | null;
 }
 
 export interface Cart {
@@ -71,6 +83,30 @@ export interface GiftCardCheck {
   balance?: string;
   expires_at?: string;
   error?: string;
+}
+
+export interface Product {
+  id: number;
+  title: string;
+  slug: string;
+  product_type: 'book' | 'merch';
+  product_type_display: string;
+  description: string;
+  long_description?: string;
+  image: string;
+  additional_images?: string[];
+  price: string;
+  compare_at_price?: string;
+  is_in_stock: boolean;
+  is_on_sale: boolean;
+  is_featured: boolean;
+  author?: string;
+  publisher?: string;
+  publication_year?: number;
+  pages?: number;
+  dimensions?: string;
+  isbn?: string;
+  stock_quantity?: number;
 }
 
 export interface ApiResponse<T> {
