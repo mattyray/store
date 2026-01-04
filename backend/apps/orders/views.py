@@ -3,12 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import ProductVariant
-from .models import Cart, CartItem
+from .models import Cart, CartItem, Order
 from .serializers import (
     CartSerializer,
     CartItemSerializer,
     AddToCartSerializer,
     UpdateCartItemSerializer,
+    OrderSerializer,
 )
 
 
@@ -110,3 +111,46 @@ class CartItemDetailView(APIView):
         cart_item.delete()
 
         return Response(CartSerializer(cart).data)
+
+
+class OrderTrackingView(APIView):
+    """Look up order by order number and email for customers."""
+
+    def post(self, request):
+        """Look up order status."""
+        order_number = request.data.get('order_number', '').strip().upper()
+        email = request.data.get('email', '').strip().lower()
+
+        if not order_number or not email:
+            return Response(
+                {'error': 'Order number and email are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            order = Order.objects.get(
+                order_number=order_number,
+                customer_email__iexact=email
+            )
+            return Response({
+                'order_number': order.order_number,
+                'status': order.status,
+                'status_display': order.get_status_display(),
+                'tracking_number': order.tracking_number or None,
+                'tracking_carrier': order.tracking_carrier or None,
+                'total': str(order.total),
+                'created_at': order.created_at.isoformat(),
+                'items': [
+                    {
+                        'title': item.photo_title,
+                        'description': item.variant_description,
+                        'quantity': item.quantity,
+                    }
+                    for item in order.items.all()
+                ]
+            })
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Order not found. Please check your order number and email.'},
+                status=status.HTTP_404_NOT_FOUND
+            )

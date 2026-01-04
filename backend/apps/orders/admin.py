@@ -1,7 +1,8 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 
 from .models import Cart, CartItem, Order, OrderItem
+from .emails import send_shipping_notification
 
 
 class CartItemInline(admin.TabularInline):
@@ -57,6 +58,9 @@ class OrderAdmin(admin.ModelAdmin):
         ('Totals', {
             'fields': ('subtotal', 'shipping_cost', 'tax', 'total')
         }),
+        ('Shipping & Tracking', {
+            'fields': ('tracking_number', 'tracking_carrier'),
+        }),
         ('Notes', {
             'fields': ('notes',),
             'classes': ('collapse',)
@@ -96,16 +100,32 @@ class OrderAdmin(admin.ModelAdmin):
         return format_html('<br>'.join(line for line in lines if line.strip()))
     shipping_address_display.short_description = 'Shipping Address'
 
-    actions = ['mark_processing', 'mark_shipped', 'mark_delivered']
+    actions = ['mark_processing', 'mark_shipped_and_notify', 'mark_delivered']
 
     @admin.action(description='Mark as processing')
     def mark_processing(self, request, queryset):
-        queryset.filter(status='paid').update(status='processing')
+        updated = queryset.filter(status='paid').update(status='processing')
+        self.message_user(request, f'{updated} order(s) marked as processing.')
 
-    @admin.action(description='Mark as shipped')
-    def mark_shipped(self, request, queryset):
-        queryset.filter(status='processing').update(status='shipped')
+    @admin.action(description='Mark as shipped & send notification')
+    def mark_shipped_and_notify(self, request, queryset):
+        orders = queryset.filter(status='processing')
+        count = 0
+        for order in orders:
+            order.status = 'shipped'
+            order.save()
+            try:
+                send_shipping_notification(
+                    order,
+                    tracking_number=order.tracking_number or None,
+                    carrier=order.tracking_carrier or None
+                )
+                count += 1
+            except Exception:
+                messages.warning(request, f'Failed to send email for order {order.order_number}')
+        self.message_user(request, f'{count} order(s) marked as shipped and notified.')
 
     @admin.action(description='Mark as delivered')
     def mark_delivered(self, request, queryset):
-        queryset.filter(status='shipped').update(status='delivered')
+        updated = queryset.filter(status='shipped').update(status='delivered')
+        self.message_user(request, f'{updated} order(s) marked as delivered.')

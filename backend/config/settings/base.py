@@ -117,3 +117,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 }
 AWS_DEFAULT_ACL = 'public-read'
 AWS_S3_FILE_OVERWRITE = False
+
+# Email settings
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Matt <hello@matthewraynor.com>')
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'hello@matthewraynor.com')

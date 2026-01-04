@@ -1,3 +1,5 @@
+from django.db import models
+from django.db.models import Min
 from django_filters import rest_framework as filters
 from rest_framework import generics
 from rest_framework.filters import OrderingFilter
@@ -62,12 +64,16 @@ class CollectionDetailView(generics.RetrieveAPIView):
 
 class PhotoListView(generics.ListAPIView):
     """List all active photos with filtering."""
-    queryset = Photo.objects.filter(is_active=True).select_related('collection')
     serializer_class = PhotoListSerializer
     filterset_class = PhotoFilter
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
-    ordering_fields = ['created_at', 'title']
+    ordering_fields = ['created_at', 'title', 'min_price']
     ordering = ['-created_at']
+
+    def get_queryset(self):
+        return Photo.objects.filter(is_active=True).select_related('collection').annotate(
+            min_price=Min('variants__price', filter=models.Q(variants__is_available=True))
+        )
 
 
 class PhotoDetailView(generics.RetrieveAPIView):
