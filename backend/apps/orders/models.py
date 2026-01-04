@@ -2,7 +2,7 @@ import uuid
 
 from django.db import models
 
-from apps.catalog.models import ProductVariant
+from apps.catalog.models import ProductVariant, Product
 
 
 class Cart(models.Model):
@@ -25,22 +25,61 @@ class Cart(models.Model):
 
 
 class CartItem(models.Model):
-    """An item in a shopping cart."""
+    """An item in a shopping cart - can be a photo variant or a product."""
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
-    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['cart', 'variant']
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(variant__isnull=False, product__isnull=True) |
+                    models.Q(variant__isnull=True, product__isnull=False)
+                ),
+                name='cart_item_has_variant_or_product'
+            )
+        ]
 
     def __str__(self):
-        return f"{self.quantity}x {self.variant}"
+        if self.variant:
+            return f"{self.quantity}x {self.variant}"
+        return f"{self.quantity}x {self.product}"
+
+    @property
+    def item_type(self):
+        return 'variant' if self.variant else 'product'
+
+    @property
+    def unit_price(self):
+        if self.variant:
+            return self.variant.price
+        return self.product.price
 
     @property
     def total_price(self):
-        return self.variant.price * self.quantity
+        return self.unit_price * self.quantity
+
+    @property
+    def title(self):
+        if self.variant:
+            return self.variant.photo.title
+        return self.product.title
+
+    @property
+    def description(self):
+        if self.variant:
+            return self.variant.display_name
+        return self.product.get_product_type_display()
+
+    @property
+    def image(self):
+        if self.variant:
+            return self.variant.photo.thumbnail or self.variant.photo.image
+        return self.product.image
 
 
 class Order(models.Model):
