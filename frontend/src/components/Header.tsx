@@ -31,6 +31,9 @@ export default function Header() {
             <Link href="/photos" className="text-sm text-gray-600 hover:text-gray-900 transition">
               Shop All
             </Link>
+            <Link href="/book" className="text-sm text-gray-600 hover:text-gray-900 transition">
+              Book
+            </Link>
             <Link href="/about" className="text-sm text-gray-600 hover:text-gray-900 transition">
               About
             </Link>
@@ -71,6 +74,9 @@ export default function Header() {
               </Link>
               <Link href="/photos" className="text-gray-600 hover:text-gray-900" onClick={() => setMobileMenuOpen(false)}>
                 Shop All
+              </Link>
+              <Link href="/book" className="text-gray-600 hover:text-gray-900" onClick={() => setMobileMenuOpen(false)}>
+                Book
               </Link>
               <Link href="/about" className="text-gray-600 hover:text-gray-900" onClick={() => setMobileMenuOpen(false)}>
                 About
