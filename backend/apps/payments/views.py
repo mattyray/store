@@ -1,4 +1,6 @@
 import stripe
+from decimal import Decimal
+
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -10,6 +12,8 @@ from rest_framework.views import APIView
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
+from apps.core.models import GiftCard
+from apps.core.emails import send_gift_card_email, send_gift_card_purchase_confirmation
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -92,7 +96,13 @@ class StripeWebhookView(APIView):
 
         if event['type'] == 'checkout.session.completed':
             session = event['data']['object']
-            self.handle_checkout_completed(session)
+            metadata = session.get('metadata', {})
+
+            # Check if this is a gift card purchase
+            if metadata.get('type') == 'gift_card':
+                self.handle_gift_card_purchase(session)
+            else:
+                self.handle_checkout_completed(session)
 
         return HttpResponse(status=200)
 
@@ -146,6 +156,37 @@ class StripeWebhookView(APIView):
             send_order_confirmation(order)
         except Exception:
             pass  # Don't fail the order if email fails
+
+    def handle_gift_card_purchase(self, session):
+        """Create gift card from completed checkout session."""
+        metadata = session.get('metadata', {})
+
+        amount = Decimal(metadata.get('amount', '0'))
+        if amount <= 0:
+            return
+
+        gift_card = GiftCard.objects.create(
+            initial_amount=amount,
+            remaining_balance=amount,
+            purchaser_email=metadata.get('purchaser_email', ''),
+            purchaser_name=metadata.get('purchaser_name', ''),
+            recipient_email=metadata.get('recipient_email', ''),
+            recipient_name=metadata.get('recipient_name', ''),
+            message=metadata.get('message', ''),
+            stripe_payment_intent=session.get('payment_intent', ''),
+        )
+
+        # Send emails
+        try:
+            send_gift_card_email(gift_card)
+            gift_card.mark_sent()
+        except Exception:
+            pass
+
+        try:
+            send_gift_card_purchase_confirmation(gift_card)
+        except Exception:
+            pass
 
 
 class OrderLookupView(APIView):
