@@ -4,12 +4,14 @@ from django_filters import rest_framework as filters
 from rest_framework import generics
 from rest_framework.filters import OrderingFilter
 
-from .models import Collection, Photo
+from .models import Collection, Photo, Product
 from .serializers import (
     CollectionListSerializer,
     CollectionDetailSerializer,
     PhotoListSerializer,
     PhotoDetailSerializer,
+    ProductListSerializer,
+    ProductDetailSerializer,
 )
 
 
@@ -88,3 +90,20 @@ class FeaturedPhotosView(generics.ListAPIView):
     queryset = Photo.objects.filter(is_active=True, is_featured=True).select_related('collection')
     serializer_class = PhotoListSerializer
     pagination_class = None
+
+
+class ProductListView(generics.ListAPIView):
+    """List all active products."""
+    queryset = Product.objects.filter(is_active=True)
+    serializer_class = ProductListSerializer
+    filter_backends = [filters.DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['product_type', 'is_featured']
+    ordering_fields = ['created_at', 'title', 'price']
+    ordering = ['-created_at']
+
+
+class ProductDetailView(generics.RetrieveAPIView):
+    """Get a single product."""
+    queryset = Product.objects.filter(is_active=True)
+    serializer_class = ProductDetailSerializer
+    lookup_field = 'slug'

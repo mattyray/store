@@ -10,4 +10,6 @@ urlpatterns = [
     path('photos/', views.PhotoListView.as_view(), name='photo-list'),
     path('photos/featured/', views.FeaturedPhotosView.as_view(), name='photo-featured'),
     path('photos/<slug:slug>/', views.PhotoDetailView.as_view(), name='photo-detail'),
+    path('products/', views.ProductListView.as_view(), name='product-list'),
+    path('products/<slug:slug>/', views.ProductDetailView.as_view(), name='product-detail'),
 ]
