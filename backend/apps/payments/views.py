@@ -31,21 +31,37 @@ class CreateCheckoutSessionView(APIView):
             )
 
         line_items = []
-        for item in cart.items.select_related('variant__photo'):
-            line_items.append({
-                'price_data': {
-                    'currency': 'usd',
-                    'unit_amount': int(item.variant.price * 100),
-                    'product_data': {
-                        'name': item.variant.photo.title,
-                        'description': item.variant.display_name,
-                        'images': [
-                            request.build_absolute_uri(item.variant.photo.image.url)
-                        ] if item.variant.photo.image else [],
+        for item in cart.items.select_related('variant__photo', 'product'):
+            if item.variant:
+                line_items.append({
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': int(item.variant.price * 100),
+                        'product_data': {
+                            'name': item.variant.photo.title,
+                            'description': item.variant.display_name,
+                            'images': [
+                                request.build_absolute_uri(item.variant.photo.image.url)
+                            ] if item.variant.photo.image else [],
+                        },
                     },
-                },
-                'quantity': item.quantity,
-            })
+                    'quantity': item.quantity,
+                })
+            elif item.product:
+                line_items.append({
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': int(item.product.price * 100),
+                        'product_data': {
+                            'name': item.product.title,
+                            'description': item.product.get_product_type_display(),
+                            'images': [
+                                request.build_absolute_uri(item.product.image.url)
+                            ] if item.product.image else [],
+                        },
+                    },
+                    'quantity': item.quantity,
+                })
 
         try:
             checkout_session = stripe.checkout.Session.create(
