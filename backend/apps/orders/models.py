@@ -144,11 +144,12 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    """An item in an order."""
+    """An item in an order - can be a photo variant or a product."""
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
-    photo_title = models.CharField(max_length=200)
-    variant_description = models.CharField(max_length=200)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
+    item_title = models.CharField(max_length=200)
+    item_description = models.CharField(max_length=200)
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=8, decimal_places=2)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -160,13 +161,23 @@ class OrderItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.quantity}x {self.photo_title} ({self.variant_description})"
+        return f"{self.quantity}x {self.item_title} ({self.item_description})"
+
+    @property
+    def item_type(self):
+        return 'variant' if self.variant else 'product'
 
     def save(self, *args, **kwargs):
-        if not self.photo_title:
-            self.photo_title = self.variant.photo.title
-        if not self.variant_description:
-            self.variant_description = self.variant.display_name
+        if not self.item_title:
+            if self.variant:
+                self.item_title = self.variant.photo.title
+            elif self.product:
+                self.item_title = self.product.title
+        if not self.item_description:
+            if self.variant:
+                self.item_description = self.variant.display_name
+            elif self.product:
+                self.item_description = self.product.get_product_type_display()
         if not self.total_price:
             self.total_price = self.unit_price * self.quantity
         super().save(*args, **kwargs)
