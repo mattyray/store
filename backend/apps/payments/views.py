@@ -154,16 +154,31 @@ class StripeWebhookView(APIView):
             total=session.get('amount_total', 0) / 100,
         )
 
-        for item in cart.items.select_related('variant__photo'):
-            OrderItem.objects.create(
-                order=order,
-                variant=item.variant,
-                photo_title=item.variant.photo.title,
-                variant_description=item.variant.display_name,
-                quantity=item.quantity,
-                unit_price=item.variant.price,
-                total_price=item.total_price,
-            )
+        for item in cart.items.select_related('variant__photo', 'product'):
+            if item.variant:
+                OrderItem.objects.create(
+                    order=order,
+                    variant=item.variant,
+                    item_title=item.variant.photo.title,
+                    item_description=item.variant.display_name,
+                    quantity=item.quantity,
+                    unit_price=item.variant.price,
+                    total_price=item.total_price,
+                )
+            elif item.product:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    item_title=item.product.title,
+                    item_description=item.product.get_product_type_display(),
+                    quantity=item.quantity,
+                    unit_price=item.product.price,
+                    total_price=item.total_price,
+                )
+                # Decrement stock if tracking inventory
+                if item.product.track_inventory:
+                    item.product.stock_quantity -= item.quantity
+                    item.product.save()
 
         cart.items.all().delete()
 

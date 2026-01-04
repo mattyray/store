@@ -36,7 +36,7 @@ class CartItem(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(variant__isnull=False, product__isnull=True) |
                     models.Q(variant__isnull=True, product__isnull=False)
                 ),
