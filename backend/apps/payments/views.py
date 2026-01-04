@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
+from apps.orders.emails import send_order_confirmation
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -139,6 +140,12 @@ class StripeWebhookView(APIView):
             )
 
         cart.items.all().delete()
+
+        # Send confirmation email
+        try:
+            send_order_confirmation(order)
+        except Exception:
+            pass  # Don't fail the order if email fails
 
 
 class OrderLookupView(APIView):

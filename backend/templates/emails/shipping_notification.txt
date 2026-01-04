@@ -1,0 +1,40 @@
+MATTHEW RAYNOR PHOTOGRAPHY
+===========================
+
+Your order is on its way!
+
+Hi {{ order.customer_name }},
+
+Great news! Your order has shipped and is on its way to you.
+
+{% if tracking_number %}
+TRACKING NUMBER: {{ tracking_number }}
+{% if carrier %}Via {{ carrier }}{% endif %}
+{% endif %}
+
+ORDER NUMBER: {{ order.order_number }}
+
+ITEMS SHIPPED
+-------------
+{% for item in items %}
+{{ item.photo_title }}
+{{ item.variant_description }} x {{ item.quantity }}
+
+{% endfor %}
+
+SHIPPING TO
+-----------
+{{ order.customer_name }}
+{{ order.shipping_address.line1 }}
+{% if order.shipping_address.line2 %}{{ order.shipping_address.line2 }}{% endif %}
+{{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}
+
+HANDLING YOUR PRINT
+-------------------
+Your artwork arrives ready to hang. For aluminum prints, we recommend wearing cotton gloves when handling to prevent fingerprints. Display away from direct sunlight to preserve colors for generations.
+
+Questions? Contact us at {{ support_email }}.
+
+---
+{{ store_name }}
+Hampton Bays, NY

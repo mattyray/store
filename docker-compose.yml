@@ -1,3 +1,7 @@
+# ===========================================
+# PORT: 7974
+# ===========================================
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,7 +12,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "7975:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -19,13 +23,13 @@ services:
     build: ./backend
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+             python manage.py runserver 0.0.0.0:7974"
     volumes:
       - ./backend:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:
-      - "8000:8000"
+      - "7974:7974"
     environment:
       - DEBUG=True
       - DJANGO_SETTINGS_MODULE=config.settings.development

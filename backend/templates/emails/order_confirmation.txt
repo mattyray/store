@@ -1,0 +1,41 @@
+MATTHEW RAYNOR PHOTOGRAPHY
+===========================
+
+Thank you for your order!
+
+Hi {{ order.customer_name }},
+
+Your order has been confirmed and is being prepared. Each piece is carefully crafted to museum-quality standards.
+
+ORDER NUMBER: {{ order.order_number }}
+
+ORDER DETAILS
+-------------
+{% for item in items %}
+{{ item.photo_title }}
+{{ item.variant_description }} x {{ item.quantity }}
+${{ item.total_price }}
+
+{% endfor %}
+-------------
+Subtotal: ${{ order.subtotal }}
+{% if order.shipping_cost %}Shipping: ${{ order.shipping_cost }}{% endif %}
+{% if order.tax %}Tax: ${{ order.tax }}{% endif %}
+TOTAL: ${{ order.total }}
+
+SHIPPING TO
+-----------
+{{ order.customer_name }}
+{{ order.shipping_address.line1 }}
+{% if order.shipping_address.line2 %}{{ order.shipping_address.line2 }}{% endif %}
+{{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}
+
+WHAT'S NEXT?
+------------
+Your print will be carefully produced over the next 14-21 business days. You'll receive a shipping notification with tracking information once your order is on its way.
+
+Questions? Contact us at {{ support_email }}.
+
+---
+{{ store_name }}
+Hampton Bays, NY
