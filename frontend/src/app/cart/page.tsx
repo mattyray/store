@@ -91,75 +91,83 @@ export default function CartPage() {
       <h1 className="text-3xl font-light tracking-wide mb-8">Your Cart</h1>
 
       <div className="space-y-6">
-        {cart.items.map((item) => (
-          <div
-            key={item.id}
-            className="flex gap-6 p-4 bg-gray-50 rounded"
-          >
-            {/* Image */}
-            <div className="relative w-24 h-24 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-              {item.variant.photo.thumbnail ? (
-                <Image
-                  src={item.variant.photo.thumbnail}
-                  alt={item.variant.photo.title}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                  No image
-                </div>
-              )}
-            </div>
+        {cart.items.map((item) => {
+          const itemLink = item.item_type === 'variant' && item.variant
+            ? `/photos/${item.variant.photo.slug}`
+            : item.product
+              ? `/book/${item.product.slug}`
+              : '#';
 
-            {/* Details */}
-            <div className="flex-1">
-              <Link
-                href={`/photos/${item.variant.photo.slug}`}
-                className="font-medium hover:text-blue-600 transition"
-              >
-                {item.variant.photo.title}
-              </Link>
-              <p className="text-sm text-gray-500 mt-1">{item.variant.display_name}</p>
+          return (
+            <div
+              key={item.id}
+              className="flex gap-6 p-4 bg-gray-50 rounded"
+            >
+              {/* Image */}
+              <div className="relative w-24 h-24 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                    No image
+                  </div>
+                )}
+              </div>
 
-              <div className="flex items-center gap-4 mt-3">
-                <div className="flex items-center border border-gray-200 rounded">
-                  <button
-                    onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                    disabled={updating === item.id || item.quantity <= 1}
-                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    -
-                  </button>
-                  <span className="px-3 py-1 min-w-[40px] text-center">{item.quantity}</span>
-                  <button
-                    onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                    disabled={updating === item.id}
-                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    +
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => handleRemove(item.id)}
-                  disabled={updating === item.id}
-                  className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+              {/* Details */}
+              <div className="flex-1">
+                <Link
+                  href={itemLink}
+                  className="font-medium hover:text-blue-600 transition"
                 >
-                  Remove
-                </button>
+                  {item.title}
+                </Link>
+                <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center border border-gray-200 rounded">
+                    <button
+                      onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                      disabled={updating === item.id || item.quantity <= 1}
+                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      -
+                    </button>
+                    <span className="px-3 py-1 min-w-[40px] text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                      disabled={updating === item.id}
+                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => handleRemove(item.id)}
+                    disabled={updating === item.id}
+                    className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+
+              {/* Price */}
+              <div className="text-right">
+                <p className="font-medium">${item.total_price}</p>
+                {item.quantity > 1 && (
+                  <p className="text-sm text-gray-500">${item.unit_price} each</p>
+                )}
               </div>
             </div>
-
-            {/* Price */}
-            <div className="text-right">
-              <p className="font-medium">${item.total_price}</p>
-              {item.quantity > 1 && (
-                <p className="text-sm text-gray-500">${item.variant.price} each</p>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Summary */}
