@@ -93,10 +93,12 @@ class UpdateCartItemSerializer(serializers.Serializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     """Serializer for order items."""
+    item_type = serializers.CharField(read_only=True)
+
     class Meta:
         model = OrderItem
         fields = [
-            'id', 'photo_title', 'variant_description',
+            'id', 'item_type', 'item_title', 'item_description',
             'quantity', 'unit_price', 'total_price'
         ]
 
