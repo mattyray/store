@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gift Card Sent</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="padding: 40px 40px 30px; text-align: center; border-bottom: 1px solid #e5e5e5;">
+                <h1 style="margin: 0; font-size: 24px; font-weight: 400; color: #333;">Matthew Raynor Photography</h1>
+            </td>
+        </tr>
+
+        <!-- Main Content -->
+        <tr>
+            <td style="padding: 40px;">
+                <h2 style="margin: 0 0 20px; font-size: 20px; font-weight: 500; color: #333;">Your gift card has been sent!</h2>
+
+                <p style="margin: 0 0 30px; color: #666; line-height: 1.6;">
+                    Hi {{ gift_card.purchaser_name|default:"there" }},<br><br>
+                    Your ${{ gift_card.initial_amount }} gift card has been delivered to {{ gift_card.recipient_email }}.
+                </p>
+
+                <!-- Gift Card Summary -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafafa; border-radius: 8px; margin-bottom: 30px;">
+                    <tr>
+                        <td style="padding: 20px;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="padding: 5px 0; color: #666;">Amount:</td>
+                                    <td style="padding: 5px 0; text-align: right; font-weight: 500; color: #333;">${{ gift_card.initial_amount }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0; color: #666;">Recipient:</td>
+                                    <td style="padding: 5px 0; text-align: right; color: #333;">{{ gift_card.recipient_name|default:gift_card.recipient_email }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0; color: #666;">Code:</td>
+                                    <td style="padding: 5px 0; text-align: right; font-family: monospace; color: #333;">{{ gift_card.code }}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <p style="margin: 0; color: #666; line-height: 1.6; font-size: 14px;">
+                    Keep this email for your records. If the recipient doesn't receive their gift card, you can share the code above directly with them.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="padding: 30px 40px; background-color: #fafafa; text-align: center; border-top: 1px solid #e5e5e5;">
+                <p style="margin: 0 0 10px; font-size: 14px; color: #999;">
+                    {{ store_name }}
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #999;">
+                    Thank you for sharing the gift of art.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

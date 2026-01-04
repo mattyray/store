@@ -1,0 +1,29 @@
+MATTHEW RAYNOR PHOTOGRAPHY
+===========================
+
+You've received a gift!
+
+{% if gift_card.recipient_name %}Hi {{ gift_card.recipient_name }},
+
+{% endif %}{{ gift_card.purchaser_name|default:"Someone special" }} has sent you a gift card to explore fine art photography of the Hamptons.
+
+===========================
+GIFT CARD: ${{ gift_card.initial_amount }}
+CODE: {{ gift_card.code }}
+===========================
+
+{% if gift_card.message %}
+Personal Message:
+"{{ gift_card.message }}"
+— {{ gift_card.purchaser_name|default:"Your friend" }}
+
+{% endif %}
+HOW TO USE YOUR GIFT CARD
+-------------------------
+Enter code {{ gift_card.code }} at checkout to apply your gift card balance. Any remaining balance can be used on future purchases.
+
+Browse the collection: {{ store_url }}
+
+---
+{{ store_name }}
+Fine Art Photography of the Hamptons

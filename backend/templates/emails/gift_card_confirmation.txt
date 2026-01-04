@@ -1,0 +1,20 @@
+MATTHEW RAYNOR PHOTOGRAPHY
+===========================
+
+Your gift card has been sent!
+
+Hi {{ gift_card.purchaser_name|default:"there" }},
+
+Your ${{ gift_card.initial_amount }} gift card has been delivered to {{ gift_card.recipient_email }}.
+
+GIFT CARD DETAILS
+-----------------
+Amount: ${{ gift_card.initial_amount }}
+Recipient: {{ gift_card.recipient_name|default:gift_card.recipient_email }}
+Code: {{ gift_card.code }}
+
+Keep this email for your records. If the recipient doesn't receive their gift card, you can share the code above directly with them.
+
+---
+{{ store_name }}
+Thank you for sharing the gift of art.
