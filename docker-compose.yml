@@ -1,5 +1,5 @@
 # ===========================================
-# PORT: 7974
+# PORTS: Backend 7974, Frontend 3000, DB 7975
 # ===========================================
 
 services:
@@ -42,10 +42,26 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-us-east-1}
+      - MAILERLITE_API_KEY=${MAILERLITE_API_KEY:-}
       - FRONTEND_URL=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:7974/api
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
