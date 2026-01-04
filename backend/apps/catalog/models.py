@@ -124,3 +124,63 @@ class ProductVariant(models.Model):
     @property
     def display_name(self):
         return f'{self.size}" {self.get_material_display()}'
+
+
+class Product(models.Model):
+    """A standalone product like a book or merchandise."""
+
+    PRODUCT_TYPE_CHOICES = [
+        ('book', 'Book'),
+        ('merch', 'Merchandise'),
+    ]
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True, max_length=200)
+    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICES, default='book')
+    description = models.TextField(blank=True)
+    long_description = models.TextField(blank=True, help_text='Detailed description for product page')
+    image = models.ImageField(upload_to='products/')
+    additional_images = models.JSONField(default=list, blank=True, help_text='List of additional image URLs')
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    compare_at_price = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text='Original price for showing discounts'
+    )
+    sku = models.CharField(max_length=100, blank=True)
+    weight_oz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    stock_quantity = models.PositiveIntegerField(default=0)
+    track_inventory = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    # Book-specific fields
+    author = models.CharField(max_length=200, blank=True)
+    publisher = models.CharField(max_length=200, blank=True)
+    publication_year = models.PositiveIntegerField(null=True, blank=True)
+    pages = models.PositiveIntegerField(null=True, blank=True)
+    dimensions = models.CharField(max_length=100, blank=True, help_text='e.g., 12" x 10"')
+    isbn = models.CharField(max_length=20, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
+
+    @property
+    def is_in_stock(self):
+        if not self.track_inventory:
+            return True
+        return self.stock_quantity > 0
+
+    @property
+    def is_on_sale(self):
+        return self.compare_at_price and self.compare_at_price > self.price

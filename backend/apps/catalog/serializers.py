@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Collection, Photo, ProductVariant
+from .models import Collection, Photo, ProductVariant, Product
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -82,3 +82,35 @@ class CollectionDetailSerializer(serializers.ModelSerializer):
             context=self.context
         ).data
         return data
+
+
+class ProductListSerializer(serializers.ModelSerializer):
+    """Serializer for product list views."""
+    is_in_stock = serializers.BooleanField(read_only=True)
+    is_on_sale = serializers.BooleanField(read_only=True)
+    product_type_display = serializers.CharField(source='get_product_type_display', read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'slug', 'product_type', 'product_type_display',
+            'description', 'image', 'price', 'compare_at_price',
+            'is_in_stock', 'is_on_sale', 'is_featured'
+        ]
+
+
+class ProductDetailSerializer(serializers.ModelSerializer):
+    """Serializer for product detail view."""
+    is_in_stock = serializers.BooleanField(read_only=True)
+    is_on_sale = serializers.BooleanField(read_only=True)
+    product_type_display = serializers.CharField(source='get_product_type_display', read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'slug', 'product_type', 'product_type_display',
+            'description', 'long_description', 'image', 'additional_images',
+            'price', 'compare_at_price', 'is_in_stock', 'is_on_sale',
+            'is_featured', 'author', 'publisher', 'publication_year',
+            'pages', 'dimensions', 'isbn', 'stock_quantity'
+        ]
