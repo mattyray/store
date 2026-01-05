@@ -35,6 +35,7 @@ else:
 
 # CORS - Allow all in development
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # Use local file storage in development
 DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
