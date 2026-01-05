@@ -8,7 +8,7 @@ from .base import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 # Database - PostgreSQL for production (supports DATABASE_URL from Railway)
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -42,15 +42,18 @@ else:
     }
 
 # CORS - Restrict to frontend domain
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
-# S3 storage for production
-DEFAULT_FILE_STORAGE = 'apps.core.storage.PublicMediaStorage'
-STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-# Media URL for S3
-MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+# S3 storage for production (only if AWS configured)
+if AWS_STORAGE_BUCKET_NAME:
+    DEFAULT_FILE_STORAGE = 'apps.core.storage.PublicMediaStorage'
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+else:
+    # Fallback to local storage if S3 not configured
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Security settings
 SECURE_SSL_REDIRECT = True
