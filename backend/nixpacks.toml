@@ -6,6 +6,3 @@ cmds = ["pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["python manage.py collectstatic --noinput"]
-
-[start]
-cmd = "python manage.py migrate && python -c 'from config.wsgi import application; print(\"WSGI loaded OK\")' && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --log-level debug"
