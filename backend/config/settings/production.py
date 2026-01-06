@@ -8,7 +8,9 @@ from .base import *
 
 DEBUG = False
 
+# Allow Railway's health check and configured hosts
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
+ALLOWED_HOSTS.append('*')  # Temporarily allow all for debugging
 
 # Database - PostgreSQL for production (supports DATABASE_URL from Railway)
 DATABASE_URL = os.getenv('DATABASE_URL')
