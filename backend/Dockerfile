@@ -21,6 +21,5 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput --settings=config.settings.production || true
 
-EXPOSE 8000
-
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
+# Railway uses $PORT, default to 8000 for local
+CMD python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000}
