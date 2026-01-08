@@ -2,10 +2,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getFeaturedPhotos, getCollections } from '@/lib/api';
 import PhotoCard from '@/components/PhotoCard';
+import type { Photo, Collection } from '@/types';
 
 export default async function HomePage() {
-  let featuredPhotos = [];
-  let collections = [];
+  let featuredPhotos: Photo[] = [];
+  let collections: Collection[] = [];
 
   try {
     [featuredPhotos, { results: collections }] = await Promise.all([
