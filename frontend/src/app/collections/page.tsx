@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCollections } from '@/lib/api';
+import type { Collection } from '@/types';
 
 export const metadata = {
   title: 'Collections | Matthew Raynor Photography',
@@ -8,7 +9,7 @@ export const metadata = {
 };
 
 export default async function CollectionsPage() {
-  let collections = [];
+  let collections: Collection[] = [];
 
   try {
     const data = await getCollections();
