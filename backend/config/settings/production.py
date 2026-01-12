@@ -6,7 +6,7 @@ import re
 
 from .base import *
 
-DEBUG = False
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Allow Railway's health check and configured hosts
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
