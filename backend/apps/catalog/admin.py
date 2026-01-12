@@ -7,13 +7,13 @@ from .models import Collection, Photo, ProductVariant, Product
 class PhotoInline(admin.TabularInline):
     model = Photo
     extra = 0
-    fields = ['title', 'slug', 'is_featured', 'is_active', 'display_order']
-    readonly_fields = ['slug']
+    fields = ['title', 'slug', 'is_featured', 'is_active', 'created_date']
+    readonly_fields = ['slug', 'created_date']
     show_change_link = True
 
-    def display_order(self, obj):
-        return obj.created_at.strftime('%Y-%m-%d')
-    display_order.short_description = 'Created'
+    def created_date(self, obj):
+        return obj.created_at.strftime('%Y-%m-%d') if obj.created_at else '-'
+    created_date.short_description = 'Created'
 
 
 @admin.register(Collection)
