@@ -50,6 +50,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # WhiteNoise for serving static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_USE_FINDERS = True
 
 # S3 storage for media files (only if AWS configured)
 if AWS_STORAGE_BUCKET_NAME:
