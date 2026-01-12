@@ -4,8 +4,9 @@ from storages.backends.s3boto3 import S3Boto3Storage
 class PublicMediaStorage(S3Boto3Storage):
     """Storage backend for public media files (photos)."""
     location = 'media'
-    default_acl = 'public-read'
+    default_acl = None
     file_overwrite = False
+    querystring_auth = False
 
 
 class PrivateMediaStorage(S3Boto3Storage):
