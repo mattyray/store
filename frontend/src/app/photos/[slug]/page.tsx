@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { getPhoto, addToCart } from '@/lib/api';
 import type { Photo, ProductVariant } from '@/types';
+import CropOverlay from '@/components/CropOverlay';
 
 export default function PhotoDetailPage() {
   const params = useParams();
@@ -80,16 +81,24 @@ export default function PhotoDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image */}
-        <div className="relative aspect-[4/3] bg-gray-100 rounded overflow-hidden">
+        <div className="relative aspect-[3/2] bg-gray-100 rounded overflow-hidden">
           {photo.image ? (
-            <Image
-              src={photo.image}
-              alt={photo.title}
-              fill
-              className="object-contain"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority
-            />
+            <>
+              <Image
+                src={photo.image}
+                alt={photo.title}
+                fill
+                className="object-contain"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                priority
+              />
+              {selectedVariant && (
+                <CropOverlay
+                  widthInches={selectedVariant.width_inches}
+                  heightInches={selectedVariant.height_inches}
+                />
+              )}
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">
               No image available
