@@ -3,6 +3,8 @@ import Image from 'next/image';
 import { getCollections } from '@/lib/api';
 import type { Collection } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Collections | Matthew Raynor Photography',
   description: 'Explore our curated collections of fine art Hamptons photography.',
