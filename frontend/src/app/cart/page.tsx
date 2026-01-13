@@ -92,9 +92,9 @@ export default function CartPage() {
 
       <div className="space-y-6">
         {cart.items.map((item) => {
-          const itemLink = item.item_type === 'variant' && item.variant
+          const itemLink = item.item_type === 'variant' && item.variant?.photo?.slug
             ? `/photos/${item.variant.photo.slug}`
-            : item.product
+            : item.product?.slug
               ? `/book/${item.product.slug}`
               : '#';
 
