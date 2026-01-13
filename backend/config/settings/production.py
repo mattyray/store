@@ -52,10 +52,9 @@ CORS_ALLOW_CREDENTIALS = True
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
 
-# S3 storage for media files (only if AWS configured)
-if AWS_STORAGE_BUCKET_NAME:
-    DEFAULT_FILE_STORAGE = 'apps.core.storage.PublicMediaStorage'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+# S3 storage for media files
+DEFAULT_FILE_STORAGE = 'apps.core.storage.PublicMediaStorage'
+MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 # Security settings
 SECURE_SSL_REDIRECT = True
