@@ -101,7 +101,7 @@ export default function CartPage() {
           return (
             <div
               key={item.id}
-              className="flex gap-6 p-4 bg-gray-50 dark:bg-gray-800 rounded"
+              className="flex items-center gap-6 p-4 bg-gray-50 dark:bg-gray-800 rounded"
             >
               {/* Image */}
               <div className="relative w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex-shrink-0">
