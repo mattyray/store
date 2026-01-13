@@ -169,13 +169,10 @@ export default function PhotoDetailPage() {
           {/* Selected Variant Details */}
           {selectedVariant && (
             <div className="mt-8 p-4 bg-gray-100 rounded border border-gray-200">
-              <div className="flex justify-between items-center mb-2">
+              <div className="flex justify-between items-center">
                 <span className="font-medium text-gray-900">{selectedVariant.display_name}</span>
                 <span className="text-xl font-semibold text-gray-900">${selectedVariant.price}</span>
               </div>
-              <p className="text-sm text-gray-600">
-                {selectedVariant.width_inches}" × {selectedVariant.height_inches}"
-              </p>
             </div>
           )}
 
