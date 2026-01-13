@@ -13,6 +13,7 @@ async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${getApiUrl()}${endpoint}`;
+  const isServer = typeof window === 'undefined';
 
   const res = await fetch(url, {
     ...options,
@@ -20,7 +21,8 @@ async function fetchApi<T>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
-    credentials: 'include',
+    // Only include credentials on client-side requests
+    ...(isServer ? { cache: 'no-store' } : { credentials: 'include' }),
   });
 
   if (!res.ok) {
