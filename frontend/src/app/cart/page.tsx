@@ -101,10 +101,10 @@ export default function CartPage() {
           return (
             <div
               key={item.id}
-              className="flex gap-6 p-4 bg-gray-50 rounded"
+              className="flex gap-6 p-4 bg-gray-50 dark:bg-gray-800 rounded"
             >
               {/* Image */}
-              <div className="relative w-24 h-24 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+              <div className="relative w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex-shrink-0">
                 {item.image ? (
                   <Image
                     src={item.image}
@@ -123,26 +123,26 @@ export default function CartPage() {
               <div className="flex-1">
                 <Link
                   href={itemLink}
-                  className="font-medium hover:text-blue-600 transition"
+                  className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition"
                 >
                   {item.title}
                 </Link>
-                <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{item.description}</p>
 
                 <div className="flex items-center gap-4 mt-3">
-                  <div className="flex items-center border border-gray-200 rounded">
+                  <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded">
                     <button
                       onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                       disabled={updating === item.id || item.quantity <= 1}
-                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                      className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                     >
                       -
                     </button>
-                    <span className="px-3 py-1 min-w-[40px] text-center">{item.quantity}</span>
+                    <span className="px-3 py-1 min-w-[40px] text-center text-gray-900 dark:text-gray-100">{item.quantity}</span>
                     <button
                       onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                       disabled={updating === item.id}
-                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                      className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                     >
                       +
                     </button>
@@ -151,7 +151,7 @@ export default function CartPage() {
                   <button
                     onClick={() => handleRemove(item.id)}
                     disabled={updating === item.id}
-                    className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -160,9 +160,9 @@ export default function CartPage() {
 
               {/* Price */}
               <div className="text-right">
-                <p className="font-medium">${item.total_price}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">${item.total_price}</p>
                 {item.quantity > 1 && (
-                  <p className="text-sm text-gray-500">${item.unit_price} each</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">${item.unit_price} each</p>
                 )}
               </div>
             </div>
@@ -171,26 +171,26 @@ export default function CartPage() {
       </div>
 
       {/* Summary */}
-      <div className="mt-8 pt-8 border-t border-gray-200">
+      <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-6">
-          <span className="text-lg">Subtotal</span>
-          <span className="text-2xl font-medium">${cart.subtotal}</span>
+          <span className="text-lg text-gray-900 dark:text-gray-100">Subtotal</span>
+          <span className="text-2xl font-medium text-gray-900 dark:text-gray-100">${cart.subtotal}</span>
         </div>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Shipping and taxes calculated at checkout.
         </p>
 
         <button
           onClick={handleCheckout}
           disabled={checkingOut}
-          className="w-full py-4 bg-gray-900 text-white font-medium rounded hover:bg-gray-800 transition disabled:opacity-50"
+          className="w-full py-4 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded hover:bg-gray-800 dark:hover:bg-gray-200 transition disabled:opacity-50"
         >
           {checkingOut ? 'Redirecting to Checkout...' : 'Proceed to Checkout'}
         </button>
 
         <Link
           href="/photos"
-          className="block text-center mt-4 text-sm text-gray-600 hover:text-gray-900"
+          className="block text-center mt-4 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
         >
           Continue Shopping
         </Link>
