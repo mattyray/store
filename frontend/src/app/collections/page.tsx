@@ -23,8 +23,8 @@ export default async function CollectionsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
-        <h1 className="text-3xl font-light tracking-wide mb-4">Collections</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
+        <h1 className="text-3xl font-light tracking-wide mb-4 text-gray-900 dark:text-gray-100">Collections</h1>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
           Explore themed series of photographs capturing the essence of the Hamptons.
         </p>
       </div>
@@ -65,7 +65,7 @@ export default async function CollectionsPage() {
                 </div>
               </div>
               {collection.description && (
-                <p className="mt-3 text-sm text-gray-600 line-clamp-2">{collection.description}</p>
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{collection.description}</p>
               )}
             </Link>
           ))}

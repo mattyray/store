@@ -42,8 +42,8 @@ export default async function HomePage() {
       {featuredPhotos.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-light tracking-wide mb-2">Featured Works</h2>
-            <p className="text-gray-600">Curated selections from the collection</p>
+            <h2 className="text-2xl font-light tracking-wide mb-2 text-gray-900 dark:text-gray-100">Featured Works</h2>
+            <p className="text-gray-600 dark:text-gray-400">Curated selections from the collection</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {featuredPhotos.slice(0, 6).map((photo) => (
@@ -53,7 +53,7 @@ export default async function HomePage() {
           <div className="text-center mt-12">
             <Link
               href="/photos"
-              className="inline-block px-8 py-3 border border-gray-900 text-gray-900 text-sm font-medium rounded hover:bg-gray-900 hover:text-white transition"
+              className="inline-block px-8 py-3 border border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100 text-sm font-medium rounded hover:bg-gray-900 hover:text-white dark:hover:bg-gray-100 dark:hover:text-gray-900 transition"
             >
               View All Prints
             </Link>
@@ -63,11 +63,11 @@ export default async function HomePage() {
 
       {/* Collections */}
       {collections.length > 0 && (
-        <section className="bg-gray-50 py-20">
+        <section className="bg-gray-50 dark:bg-gray-800 py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-2xl font-light tracking-wide mb-2">Collections</h2>
-              <p className="text-gray-600">Explore themed series of photographs</p>
+              <h2 className="text-2xl font-light tracking-wide mb-2 text-gray-900 dark:text-gray-100">Collections</h2>
+              <p className="text-gray-600 dark:text-gray-400">Explore themed series of photographs</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {collections.map((collection) => (
@@ -105,8 +105,8 @@ export default async function HomePage() {
 
       {/* About Teaser */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h2 className="text-2xl font-light tracking-wide mb-6">About the Artist</h2>
-        <p className="text-gray-600 leading-relaxed mb-8">
+        <h2 className="text-2xl font-light tracking-wide mb-6 text-gray-900 dark:text-gray-100">About the Artist</h2>
+        <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
           Matthew Raynor captures the timeless beauty of the Hamptons through fine art photography.
           Each print is produced using museum-quality materials, from archival pigment inks to
           hand-finished aluminum panels, ensuring your piece will be treasured for generations.

@@ -27,12 +27,12 @@ export default function PhotoCard({ photo }: PhotoCardProps) {
         )}
       </div>
       <div className="mt-3">
-        <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
           {photo.title}
         </h3>
-        <p className="text-sm text-gray-500 mt-1">{photo.location}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{photo.location}</p>
         {photo.price_range && (
-          <p className="text-sm text-gray-700 mt-1">From ${photo.price_range.min}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">From ${photo.price_range.min}</p>
         )}
       </div>
     </Link>
