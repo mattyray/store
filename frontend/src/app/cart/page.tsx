@@ -101,7 +101,7 @@ export default function CartPage() {
           return (
             <div
               key={item.id}
-              className="flex items-center gap-6 p-4 bg-gray-50 dark:bg-gray-800 rounded"
+              className="flex gap-6 p-4 bg-gray-50 dark:bg-gray-800 rounded"
             >
               {/* Image */}
               <div className="relative w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex-shrink-0">
@@ -120,7 +120,7 @@ export default function CartPage() {
               </div>
 
               {/* Details */}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <Link
                   href={itemLink}
                   className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition"
@@ -158,8 +158,8 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Price */}
-              <div className="text-right">
+              {/* Price - self-center to vertically center with the row */}
+              <div className="text-right flex-shrink-0 self-center">
                 <p className="font-medium text-gray-900 dark:text-gray-100">${item.total_price}</p>
                 {item.quantity > 1 && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">${item.unit_price} each</p>
