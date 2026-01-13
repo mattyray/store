@@ -31,8 +31,8 @@ export default function PhotoCard({ photo }: PhotoCardProps) {
           {photo.title}
         </h3>
         <p className="text-sm text-gray-500 mt-1">{photo.location}</p>
-        {photo.min_price && (
-          <p className="text-sm text-gray-700 mt-1">From ${photo.min_price}</p>
+        {photo.price_range && (
+          <p className="text-sm text-gray-700 mt-1">From ${photo.price_range.min}</p>
         )}
       </div>
     </Link>
