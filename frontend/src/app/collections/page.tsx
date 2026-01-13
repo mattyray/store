@@ -12,12 +12,14 @@ export const metadata = {
 
 export default async function CollectionsPage() {
   let collections: Collection[] = [];
+  let errorMessage = '';
 
   try {
     const data = await getCollections();
     collections = data.results || [];
   } catch (error) {
     console.error('Failed to fetch collections:', error);
+    errorMessage = error instanceof Error ? error.message : 'Unknown error';
   }
 
   return (
@@ -30,7 +32,11 @@ export default async function CollectionsPage() {
       </div>
 
       {collections.length === 0 ? (
-        <p className="text-center text-gray-500">No collections available yet.</p>
+        <div className="text-center">
+          <p className="text-gray-500">No collections available yet.</p>
+          {errorMessage && <p className="text-red-500 mt-2">Error: {errorMessage}</p>}
+          <p className="text-gray-400 text-sm mt-2">API URL: {process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'not set'}</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {collections.map((collection) => (
