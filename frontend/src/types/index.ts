@@ -12,20 +12,19 @@ export interface Photo {
   id: number;
   title: string;
   slug: string;
-  collection: {
-    id: number;
-    name: string;
-    slug: string;
-  };
+  collection_name: string;
+  collection_slug: string;
   image: string;
   thumbnail: string | null;
   description: string;
   location: string;
   location_tag: string;
-  orientation: 'horizontal' | 'vertical' | 'square';
+  orientation: string;
+  orientation_display: string;
   is_featured: boolean;
-  min_price: string | null;
+  price_range: { min: number; max: number } | null;
   variants?: ProductVariant[];
+  created_at: string;
 }
 
 export interface ProductVariant {

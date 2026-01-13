@@ -4,6 +4,7 @@
 
 [build.environment]
   NEXT_PUBLIC_API_URL = "https://store-production-385d.up.railway.app/api"
+  INTERNAL_API_URL = "https://store-production-385d.up.railway.app/api"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

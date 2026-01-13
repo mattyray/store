@@ -109,10 +109,10 @@ export default function PhotoDetailPage() {
         {/* Details */}
         <div>
           <Link
-            href={`/collections/${photo.collection.slug}`}
+            href={`/collections/${photo.collection_slug}`}
             className="text-sm text-blue-600 hover:text-blue-700 mb-2 inline-block"
           >
-            {photo.collection.name}
+            {photo.collection_name}
           </Link>
           <h1 className="text-3xl font-light tracking-wide mb-2">{photo.title}</h1>
           <p className="text-gray-500 mb-6">{photo.location}</p>
