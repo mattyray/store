@@ -6,11 +6,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.s3.amazonaws.com',
+        hostname: 'matthewraynor-store.s3.amazonaws.com',
       },
       {
         protocol: 'https',
-        hostname: 's3.amazonaws.com',
+        hostname: 'matthewraynor-store.s3.us-east-2.amazonaws.com',
       },
       {
         protocol: 'http',
