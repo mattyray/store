@@ -95,6 +95,20 @@ class ProductVariant(models.Model):
         ('aluminum', 'Aluminum Print'),
     ]
 
+    # Default pricing by size and material
+    DEFAULT_PRICING = {
+        # Paper prints (matted)
+        ('11x14', 'paper'): {'price': 175, 'width': 11, 'height': 14},
+        ('13x19', 'paper'): {'price': 250, 'width': 13, 'height': 19},
+        # Aluminum prints
+        ('16x24', 'aluminum'): {'price': 675, 'width': 16, 'height': 24},
+        ('20x30', 'aluminum'): {'price': 995, 'width': 20, 'height': 30},
+        ('24x36', 'aluminum'): {'price': 1350, 'width': 24, 'height': 36},
+        ('30x40', 'aluminum'): {'price': 1850, 'width': 30, 'height': 40},
+        ('30x45', 'aluminum'): {'price': 2150, 'width': 30, 'height': 45},
+        ('40x60', 'aluminum'): {'price': 3400, 'width': 40, 'height': 60},
+    }
+
     photo = models.ForeignKey(
         Photo,
         on_delete=models.CASCADE,

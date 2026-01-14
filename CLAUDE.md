@@ -61,6 +61,26 @@ store/
 
 ---
 
+## Pricing
+
+### Paper Prints (Matted, Open Edition)
+| Size | Mat Size | Price |
+|------|----------|-------|
+| 11x14 | 16x20 | $175 |
+| 13x19 | 18x24 | $250 |
+
+### Aluminum Prints (Open Edition)
+| Size | Price |
+|------|-------|
+| 16x24 | $675 |
+| 20x30 | $995 |
+| 24x36 | $1,350 |
+| 30x40 | $1,850 |
+| 30x45 | $2,150 |
+| 40x60 | $3,400 |
+
+---
+
 ## Database Models
 
 ### Catalog App

@@ -83,7 +83,8 @@ class PhotoAdmin(admin.ModelAdmin):
         return obj.variants.filter(is_available=True).count()
     variant_count.short_description = 'Variants'
 
-    actions = ['make_featured', 'remove_featured', 'activate', 'deactivate']
+    actions = ['make_featured', 'remove_featured', 'activate', 'deactivate',
+                'create_paper_variants', 'create_aluminum_variants', 'create_all_variants']
 
     @admin.action(description='Mark selected photos as featured')
     def make_featured(self, request, queryset):
@@ -100,6 +101,65 @@ class PhotoAdmin(admin.ModelAdmin):
     @admin.action(description='Deactivate selected photos')
     def deactivate(self, request, queryset):
         queryset.update(is_active=False)
+
+    @admin.action(description='Create paper print variants (11x14, 13x19)')
+    def create_paper_variants(self, request, queryset):
+        created = 0
+        for photo in queryset:
+            for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
+                if material == 'paper':
+                    _, was_created = ProductVariant.objects.get_or_create(
+                        photo=photo,
+                        size=size,
+                        material=material,
+                        defaults={
+                            'price': defaults['price'],
+                            'width_inches': defaults['width'],
+                            'height_inches': defaults['height'],
+                        }
+                    )
+                    if was_created:
+                        created += 1
+        self.message_user(request, f'Created {created} paper variants.')
+
+    @admin.action(description='Create aluminum print variants (16x24 to 40x60)')
+    def create_aluminum_variants(self, request, queryset):
+        created = 0
+        for photo in queryset:
+            for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
+                if material == 'aluminum':
+                    _, was_created = ProductVariant.objects.get_or_create(
+                        photo=photo,
+                        size=size,
+                        material=material,
+                        defaults={
+                            'price': defaults['price'],
+                            'width_inches': defaults['width'],
+                            'height_inches': defaults['height'],
+                        }
+                    )
+                    if was_created:
+                        created += 1
+        self.message_user(request, f'Created {created} aluminum variants.')
+
+    @admin.action(description='Create ALL standard variants (paper + aluminum)')
+    def create_all_variants(self, request, queryset):
+        created = 0
+        for photo in queryset:
+            for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
+                _, was_created = ProductVariant.objects.get_or_create(
+                    photo=photo,
+                    size=size,
+                    material=material,
+                    defaults={
+                        'price': defaults['price'],
+                        'width_inches': defaults['width'],
+                        'height_inches': defaults['height'],
+                    }
+                )
+                if was_created:
+                    created += 1
+        self.message_user(request, f'Created {created} variants for {queryset.count()} photos.')
 
 
 @admin.register(ProductVariant)
