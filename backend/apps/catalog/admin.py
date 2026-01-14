@@ -85,7 +85,8 @@ class PhotoAdmin(admin.ModelAdmin):
 
     actions = ['make_featured', 'remove_featured', 'activate', 'deactivate',
                 'create_paper_variants', 'create_aluminum_variants', 'create_all_variants',
-                'remove_paper_variants', 'remove_aluminum_variants', 'remove_all_variants']
+                'remove_paper_variants', 'remove_aluminum_variants', 'remove_all_variants',
+                'refresh_image_dimensions', 'delete_photos_and_variants']
 
     @admin.action(description='Mark selected photos as featured')
     def make_featured(self, request, queryset):
@@ -103,59 +104,79 @@ class PhotoAdmin(admin.ModelAdmin):
     def deactivate(self, request, queryset):
         queryset.update(is_active=False)
 
-    @admin.action(description='Create paper print variants (11x14, 13x19)')
+    def _get_variant_dimensions(self, photo, defaults):
+        """Get width/height based on photo orientation. Flips for vertical photos."""
+        width = defaults['width']
+        height = defaults['height']
+        # For vertical photos, swap dimensions so height > width
+        if photo.orientation == 'V':
+            width, height = height, width
+        return width, height
+
+    def _get_variant_size_label(self, photo, defaults):
+        """Get size label based on photo orientation."""
+        width, height = self._get_variant_dimensions(photo, defaults)
+        return f'{width}x{height}'
+
+    @admin.action(description='Create paper print variants (orientation-aware)')
     def create_paper_variants(self, request, queryset):
         created = 0
         for photo in queryset:
             for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
                 if material == 'paper':
+                    width, height = self._get_variant_dimensions(photo, defaults)
+                    size_label = self._get_variant_size_label(photo, defaults)
                     _, was_created = ProductVariant.objects.get_or_create(
                         photo=photo,
-                        size=size,
+                        size=size_label,
                         material=material,
                         defaults={
                             'price': defaults['price'],
-                            'width_inches': defaults['width'],
-                            'height_inches': defaults['height'],
+                            'width_inches': width,
+                            'height_inches': height,
                         }
                     )
                     if was_created:
                         created += 1
         self.message_user(request, f'Created {created} paper variants.')
 
-    @admin.action(description='Create aluminum print variants (16x24 to 40x60)')
+    @admin.action(description='Create aluminum print variants (orientation-aware)')
     def create_aluminum_variants(self, request, queryset):
         created = 0
         for photo in queryset:
             for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
                 if material == 'aluminum':
+                    width, height = self._get_variant_dimensions(photo, defaults)
+                    size_label = self._get_variant_size_label(photo, defaults)
                     _, was_created = ProductVariant.objects.get_or_create(
                         photo=photo,
-                        size=size,
+                        size=size_label,
                         material=material,
                         defaults={
                             'price': defaults['price'],
-                            'width_inches': defaults['width'],
-                            'height_inches': defaults['height'],
+                            'width_inches': width,
+                            'height_inches': height,
                         }
                     )
                     if was_created:
                         created += 1
         self.message_user(request, f'Created {created} aluminum variants.')
 
-    @admin.action(description='Create ALL standard variants (paper + aluminum)')
+    @admin.action(description='Create ALL standard variants (orientation-aware)')
     def create_all_variants(self, request, queryset):
         created = 0
         for photo in queryset:
             for (size, material), defaults in ProductVariant.DEFAULT_PRICING.items():
+                width, height = self._get_variant_dimensions(photo, defaults)
+                size_label = self._get_variant_size_label(photo, defaults)
                 _, was_created = ProductVariant.objects.get_or_create(
                     photo=photo,
-                    size=size,
+                    size=size_label,
                     material=material,
                     defaults={
                         'price': defaults['price'],
-                        'width_inches': defaults['width'],
-                        'height_inches': defaults['height'],
+                        'width_inches': width,
+                        'height_inches': height,
                     }
                 )
                 if was_created:
@@ -176,6 +197,21 @@ class PhotoAdmin(admin.ModelAdmin):
     def remove_all_variants(self, request, queryset):
         deleted = ProductVariant.objects.filter(photo__in=queryset).delete()[0]
         self.message_user(request, f'Deleted {deleted} variants from {queryset.count()} photos.')
+
+    @admin.action(description='Refresh image dimensions (re-save to update aspect ratio)')
+    def refresh_image_dimensions(self, request, queryset):
+        updated = 0
+        for photo in queryset:
+            photo.save()  # This triggers the dimension auto-population
+            if photo.image_width and photo.image_height:
+                updated += 1
+        self.message_user(request, f'Refreshed dimensions for {updated} photos.')
+
+    @admin.action(description='DELETE selected photos and their variants')
+    def delete_photos_and_variants(self, request, queryset):
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(request, f'Deleted {count} photos and all their variants.')
 
 
 @admin.register(ProductVariant)
