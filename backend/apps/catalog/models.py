@@ -95,18 +95,18 @@ class ProductVariant(models.Model):
         ('aluminum', 'Aluminum Print'),
     ]
 
-    # Default pricing by size and material
+    # Default pricing by size and material (width x height format)
     DEFAULT_PRICING = {
         # Paper prints (matted)
-        ('11x14', 'paper'): {'price': 175, 'width': 11, 'height': 14},
-        ('13x19', 'paper'): {'price': 250, 'width': 13, 'height': 19},
+        ('14x11', 'paper'): {'price': 175, 'width': 14, 'height': 11},
+        ('19x13', 'paper'): {'price': 250, 'width': 19, 'height': 13},
         # Aluminum prints
-        ('16x24', 'aluminum'): {'price': 675, 'width': 16, 'height': 24},
-        ('20x30', 'aluminum'): {'price': 995, 'width': 20, 'height': 30},
-        ('24x36', 'aluminum'): {'price': 1350, 'width': 24, 'height': 36},
-        ('30x40', 'aluminum'): {'price': 1850, 'width': 30, 'height': 40},
-        ('30x45', 'aluminum'): {'price': 2150, 'width': 30, 'height': 45},
-        ('40x60', 'aluminum'): {'price': 3400, 'width': 40, 'height': 60},
+        ('24x16', 'aluminum'): {'price': 675, 'width': 24, 'height': 16},
+        ('30x20', 'aluminum'): {'price': 995, 'width': 30, 'height': 20},
+        ('36x24', 'aluminum'): {'price': 1350, 'width': 36, 'height': 24},
+        ('40x30', 'aluminum'): {'price': 1850, 'width': 40, 'height': 30},
+        ('45x30', 'aluminum'): {'price': 2150, 'width': 45, 'height': 30},
+        ('60x40', 'aluminum'): {'price': 3400, 'width': 60, 'height': 40},
     }
 
     photo = models.ForeignKey(
