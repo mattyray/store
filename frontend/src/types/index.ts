@@ -25,6 +25,7 @@ export interface Photo {
   price_range: { min: number; max: number } | null;
   variants?: ProductVariant[];
   created_at: string;
+  aspect_ratio?: number;
 }
 
 export interface ProductVariant {

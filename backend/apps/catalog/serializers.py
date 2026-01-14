@@ -39,6 +39,7 @@ class PhotoDetailSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
     price_range = serializers.DictField(read_only=True)
     orientation_display = serializers.CharField(source='get_orientation_display', read_only=True)
+    aspect_ratio = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Photo
@@ -46,7 +47,8 @@ class PhotoDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'slug', 'image', 'thumbnail', 'description',
             'collection_name', 'collection_slug',
             'location', 'location_tag', 'orientation', 'orientation_display',
-            'date_taken', 'is_featured', 'price_range', 'variants', 'created_at'
+            'date_taken', 'is_featured', 'price_range', 'variants', 'created_at',
+            'aspect_ratio'
         ]
 
 

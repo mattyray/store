@@ -61,6 +61,8 @@ class Photo(models.Model):
         default='H'
     )
     date_taken = models.DateField(null=True, blank=True)
+    image_width = models.PositiveIntegerField(null=True, blank=True, editable=False)
+    image_height = models.PositiveIntegerField(null=True, blank=True, editable=False)
     is_featured = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -75,7 +77,26 @@ class Photo(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title)
+        # Auto-populate image dimensions
+        if self.image:
+            try:
+                self.image_width = self.image.width
+                self.image_height = self.image.height
+            except Exception:
+                pass  # Image not accessible yet
         super().save(*args, **kwargs)
+
+    @property
+    def aspect_ratio(self):
+        """Returns the actual aspect ratio of the image."""
+        if self.image_width and self.image_height:
+            return self.image_width / self.image_height
+        # Fallback based on orientation
+        if self.orientation == 'V':
+            return 2 / 3
+        elif self.orientation == 'S':
+            return 1
+        return 3 / 2  # Default horizontal
 
     @property
     def price_range(self):
