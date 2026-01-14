@@ -81,7 +81,13 @@ export default function PhotoDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image */}
-        <div className="relative aspect-[3/2] bg-gray-100 rounded overflow-hidden">
+        <div className={`relative ${
+          photo.orientation === 'vertical'
+            ? 'aspect-[2/3]'
+            : photo.orientation === 'square'
+              ? 'aspect-square'
+              : 'aspect-[3/2]'
+        } bg-gray-100 rounded overflow-hidden`}>
           {photo.image ? (
             <>
               <Image
@@ -96,6 +102,13 @@ export default function PhotoDetailPage() {
                 <CropOverlay
                   widthInches={selectedVariant.width_inches}
                   heightInches={selectedVariant.height_inches}
+                  sourceRatio={
+                    photo.orientation === 'vertical'
+                      ? 2 / 3
+                      : photo.orientation === 'square'
+                        ? 1
+                        : 3 / 2
+                  }
                 />
               )}
             </>

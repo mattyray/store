@@ -9,9 +9,16 @@ interface PhotoCardProps {
 export default function PhotoCard({ photo }: PhotoCardProps) {
   const imageUrl = photo.thumbnail || photo.image;
 
+  // Adjust aspect ratio based on photo orientation
+  const aspectClass = photo.orientation === 'vertical'
+    ? 'aspect-[3/4]'
+    : photo.orientation === 'square'
+      ? 'aspect-square'
+      : 'aspect-[4/3]';
+
   return (
     <Link href={`/photos/${photo.slug}`} className="group block">
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 rounded-sm">
+      <div className={`relative ${aspectClass} overflow-hidden bg-gray-100 rounded-sm`}>
         {imageUrl ? (
           <Image
             src={imageUrl}
