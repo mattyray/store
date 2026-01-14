@@ -85,9 +85,15 @@ store/
 
 ### Catalog App
 - **Collection** - Photo series/collections (e.g., "Montauk Sunsets")
-- **Photo** - Individual photographs with title, description, location, orientation
+- **Photo** - Individual photographs with title, description, location, orientation, auto-captured image dimensions
 - **ProductVariant** - Purchasable options: size + material (paper/aluminum) + price
 - **Product** - Standalone products like books or merchandise
+
+### Photo Image Handling
+- Photos store `image_width` and `image_height` (auto-populated on save)
+- `aspect_ratio` property calculates actual ratio for accurate crop previews
+- Frontend uses real aspect ratio to display images without letterboxing
+- CropOverlay shows what will be cropped for each print size
 
 ### Orders App
 - **Cart** - Session-based cart (UUID primary key)
@@ -291,9 +297,23 @@ Contact form has a hidden honeypot field. If filled (by bots), form silently "su
 
 ---
 
+## Django Admin Actions
+
+### Photo Admin Actions
+- **Create paper/aluminum/all variants** - Bulk create variants with default pricing
+- **Remove paper/aluminum/all variants** - Bulk delete variants
+- **Refresh image dimensions** - Re-save photos to update aspect ratio
+- **Delete photos and variants** - Bulk delete photos with their variants
+
+### Default Variant Pricing
+Defined in `ProductVariant.DEFAULT_PRICING` - used by bulk create actions.
+
+---
+
 ## Current Status / TODO
 - Stripe checkout integration complete
 - Gift card system implemented
 - Newsletter subscription (MailerLite) working
 - Contact form with honeypot spam protection
 - Dark mode fully supported across all pages
+- Image aspect ratio handling for accurate crop previews

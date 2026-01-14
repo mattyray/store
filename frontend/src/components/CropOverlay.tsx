@@ -11,18 +11,28 @@ interface CropOverlayProps {
  * when printing at the selected size.
  *
  * Darkens the areas that will be cut off, leaving the printable area clear.
+ * When ratios match (no crop needed), shows a subtle border to indicate selection.
  */
 export default function CropOverlay({
   widthInches,
   heightInches,
   sourceRatio = 1.5 // 3:2 default
 }: CropOverlayProps) {
-  const printRatio = widthInches / heightInches;
+  // For vertical images (sourceRatio < 1), flip the print dimensions
+  // so that a "30x20" print becomes "20x30" for vertical orientation
+  const isVertical = sourceRatio < 1;
+  const printRatio = isVertical
+    ? heightInches / widthInches
+    : widthInches / heightInches;
 
-  // If ratios match (within tolerance), no crop needed
+  // If ratios match (within tolerance), no crop needed - show full frame border
   const tolerance = 0.02;
   if (Math.abs(printRatio - sourceRatio) < tolerance) {
-    return null;
+    return (
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-2 border-2 border-white/70 rounded" />
+      </div>
+    );
   }
 
   // Calculate crop percentages
