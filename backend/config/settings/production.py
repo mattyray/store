@@ -48,7 +48,7 @@ cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
-# WhiteNoise
+# WhiteNoise - serve static files in production
 WHITENOISE_USE_FINDERS = True
 
 # S3 storage for media files
@@ -57,7 +57,7 @@ STORAGES = {
         "BACKEND": "apps.core.storage.PublicMediaStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
