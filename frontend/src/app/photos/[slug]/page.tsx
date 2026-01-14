@@ -77,24 +77,28 @@ export default function PhotoDetailPage() {
   const paperVariants = photo.variants?.filter((v) => v.material === 'paper' && v.is_available) || [];
   const aluminumVariants = photo.variants?.filter((v) => v.material === 'aluminum' && v.is_available) || [];
 
+  // Use actual aspect ratio from API, or fall back to orientation-based defaults
+  const sourceRatio = photo.aspect_ratio || (
+    photo.orientation === 'vertical' ? 2 / 3
+    : photo.orientation === 'square' ? 1
+    : 3 / 2
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image */}
-        <div className={`relative ${
-          photo.orientation === 'vertical'
-            ? 'aspect-[2/3]'
-            : photo.orientation === 'square'
-              ? 'aspect-square'
-              : 'aspect-[3/2]'
-        } bg-gray-100 rounded overflow-hidden`}>
+        <div
+          className="relative bg-gray-100 rounded overflow-hidden"
+          style={{ aspectRatio: sourceRatio }}
+        >
           {photo.image ? (
             <>
               <Image
                 src={photo.image}
                 alt={photo.title}
                 fill
-                className="object-cover"
+                className="object-contain"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />
@@ -102,13 +106,7 @@ export default function PhotoDetailPage() {
                 <CropOverlay
                   widthInches={selectedVariant.width_inches}
                   heightInches={selectedVariant.height_inches}
-                  sourceRatio={
-                    photo.orientation === 'vertical'
-                      ? 2 / 3
-                      : photo.orientation === 'square'
-                        ? 1
-                        : 3 / 2
-                  }
+                  sourceRatio={sourceRatio}
                 />
               )}
             </>
