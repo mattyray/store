@@ -84,7 +84,8 @@ class PhotoAdmin(admin.ModelAdmin):
     variant_count.short_description = 'Variants'
 
     actions = ['make_featured', 'remove_featured', 'activate', 'deactivate',
-                'create_paper_variants', 'create_aluminum_variants', 'create_all_variants']
+                'create_paper_variants', 'create_aluminum_variants', 'create_all_variants',
+                'remove_paper_variants', 'remove_aluminum_variants', 'remove_all_variants']
 
     @admin.action(description='Mark selected photos as featured')
     def make_featured(self, request, queryset):
@@ -160,6 +161,21 @@ class PhotoAdmin(admin.ModelAdmin):
                 if was_created:
                     created += 1
         self.message_user(request, f'Created {created} variants for {queryset.count()} photos.')
+
+    @admin.action(description='Remove ALL paper print variants')
+    def remove_paper_variants(self, request, queryset):
+        deleted = ProductVariant.objects.filter(photo__in=queryset, material='paper').delete()[0]
+        self.message_user(request, f'Deleted {deleted} paper variants.')
+
+    @admin.action(description='Remove ALL aluminum print variants')
+    def remove_aluminum_variants(self, request, queryset):
+        deleted = ProductVariant.objects.filter(photo__in=queryset, material='aluminum').delete()[0]
+        self.message_user(request, f'Deleted {deleted} aluminum variants.')
+
+    @admin.action(description='Remove ALL variants (paper + aluminum)')
+    def remove_all_variants(self, request, queryset):
+        deleted = ProductVariant.objects.filter(photo__in=queryset).delete()[0]
+        self.message_user(request, f'Deleted {deleted} variants from {queryset.count()} photos.')
 
 
 @admin.register(ProductVariant)
