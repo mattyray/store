@@ -190,6 +190,24 @@ Contact form has a hidden honeypot field. If filled (by bots), form silently "su
 
 ---
 
+## Gift Cards & Discount Codes
+
+### Gift Cards
+- **Purchase**: Fixed amounts ($100, $250, $500, $1000, $2500)
+- **Check Balance**: `/api/gift-cards/check/`
+- **Status**: Purchase works, but redemption at checkout NOT yet implemented
+
+### Stripe Promotion Codes
+- **NOT currently implemented** in checkout
+- To enable: Add `allow_promotion_codes=True` to `stripe.checkout.Session.create()` in [backend/apps/payments/views.py](backend/apps/payments/views.py)
+- Promo codes must be created in Stripe Dashboard → Products → Coupons
+- Once enabled, customers can enter codes on Stripe's checkout page
+
+### Product Discounts
+- `Product.compare_at_price` - For showing "was $X, now $Y" (display only, not a code)
+
+---
+
 ## Deployment
 
 ### Backend (Railway)

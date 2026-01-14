@@ -46,10 +46,10 @@ function OrderSuccessContent() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h1 className="text-3xl font-light tracking-wide mb-4">Order Status</h1>
-        <p className="text-gray-600 mb-8">{error}</p>
+        <p className="text-gray-600 dark:text-gray-300 mb-8">{error}</p>
         <Link
           href="/"
-          className="inline-block px-8 py-3 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 transition"
+          className="inline-block px-8 py-3 bg-gray-900 dark:bg-white dark:text-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 dark:hover:bg-gray-100 transition"
         >
           Return Home
         </Link>
@@ -66,24 +66,24 @@ function OrderSuccessContent() {
       </div>
 
       <h1 className="text-3xl font-light tracking-wide mb-4">Thank You!</h1>
-      <p className="text-gray-600 mb-8">
+      <p className="text-gray-600 dark:text-gray-300 mb-8">
         Your order has been confirmed and a receipt has been sent to {order?.customer_email}.
       </p>
 
-      <div className="bg-gray-50 rounded-lg p-6 mb-8">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-8">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-gray-500">Order Number</p>
-            <p className="font-medium">{order?.order_number}</p>
+            <p className="text-gray-500 dark:text-gray-400">Order Number</p>
+            <p className="font-medium text-gray-900 dark:text-white">{order?.order_number}</p>
           </div>
           <div>
-            <p className="text-gray-500">Total</p>
-            <p className="font-medium">${order?.total}</p>
+            <p className="text-gray-500 dark:text-gray-400">Total</p>
+            <p className="font-medium text-gray-900 dark:text-white">${order?.total}</p>
           </div>
         </div>
       </div>
 
-      <p className="text-sm text-gray-500 mb-8">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
         Most orders ship within 5-7 business days. You&apos;ll receive a shipping confirmation email with tracking information once your order is on its way.
       </p>
 
@@ -96,7 +96,7 @@ function OrderSuccessContent() {
         </Link>
         <Link
           href="/track-order"
-          className="px-8 py-3 border border-gray-300 text-gray-700 text-sm font-medium rounded hover:bg-gray-50 transition"
+          className="px-8 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition"
         >
           Track Order
         </Link>
