@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
-from apps.core.models import GiftCard
+from apps.core.models import GiftCard, Subscriber
 from apps.core.emails import send_gift_card_email, send_gift_card_purchase_confirmation
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -187,6 +187,19 @@ class StripeWebhookView(APIView):
             send_order_confirmation(order)
         except Exception:
             pass  # Don't fail the order if email fails
+
+        # Add customer to newsletter subscriber list
+        if order.customer_email:
+            try:
+                Subscriber.objects.get_or_create(
+                    email=order.customer_email.lower(),
+                    defaults={
+                        'name': order.customer_name,
+                        'source': 'purchase',
+                    }
+                )
+            except Exception:
+                pass  # Don't fail if subscriber creation fails
 
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
