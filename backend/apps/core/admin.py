@@ -54,7 +54,7 @@ class GiftCardAdmin(admin.ModelAdmin):
     list_filter = ['is_active', 'is_sent', 'purchased_at']
     search_fields = ['code', 'purchaser_email', 'recipient_email']
     readonly_fields = [
-        'id', 'code', 'initial_amount', 'purchased_at', 'sent_at',
+        'id', 'code', 'purchased_at', 'sent_at',
         'stripe_payment_intent'
     ]
     ordering = ['-purchased_at']
