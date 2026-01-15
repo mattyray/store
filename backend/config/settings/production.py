@@ -48,6 +48,9 @@ cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF trusted origins (required for Django 4+ cross-origin POST)
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
+
 # WhiteNoise - serve static files in production
 WHITENOISE_USE_FINDERS = True
 
