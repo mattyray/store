@@ -87,7 +87,7 @@ class GiftCardAdmin(admin.ModelAdmin):
         if obj.remaining_balance == 0:
             return format_html('<span style="color: #666;">Used</span>')
         if obj.remaining_balance < obj.initial_amount:
-            return format_html('<span style="color: #0077B6;">Partial (${:.0f})</span>', obj.remaining_balance)
+            return format_html('<span style="color: #0077B6;">Partial (${})</span>', int(obj.remaining_balance))
         return format_html('<span style="color: #28a745;">Active</span>')
 
     status_badge.short_description = 'Status'
