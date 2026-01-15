@@ -26,7 +26,7 @@ Drone perspectives of the East End — coastlines, landmarks, patterns, and land
 
 ## Aluminum Prints (Open Edition)
 
-*Dye-sublimated on premium aluminum via Aluminyze. Scratch-resistant, UV-resistant, ready to hang.*
+*Dye-sublimated on premium aluminum. Scratch-resistant, UV-resistant, ready to hang.*
 
 | Size | Price |
 |------|-------|
@@ -39,22 +39,24 @@ Drone perspectives of the East End — coastlines, landmarks, patterns, and land
 
 ---
 
-## Cost Reference
+## Pricing Strategy
 
-| Size | Aluminyze Base | + Tax | + Shipping | Total Cost |
-|------|----------------|-------|------------|------------|
-| 16x24 | $149.95 | $163 | $30 | ~$193 |
-| 20x30 | $220.95 | $240 | $45 | ~$285 |
-| 24x36 | $311.95 | $339 | $50 | ~$389 |
-| 30x40 | $415.95 | $452 | $75 | ~$527 |
-| 40x60 | $805.95 | $875 | $100 | ~$975 |
+**Markup:** 3.5x cost (wholesale + tax + shipping)
 
-**Markup:** 3.5x all costs
+### Cost Reference (Aluminum)
+
+| Size | Wholesale | + Tax | + Shipping | Total Cost | Retail (3.5x) |
+|------|-----------|-------|------------|------------|---------------|
+| 16x24 | $150 | $163 | $30 | ~$193 | $675 |
+| 20x30 | $221 | $240 | $45 | ~$285 | $995 |
+| 24x36 | $312 | $339 | $50 | ~$389 | $1,350 |
+| 30x40 | $416 | $452 | $75 | ~$527 | $1,850 |
+| 40x60 | $806 | $875 | $100 | ~$975 | $3,400 |
 
 ---
 
-## Future Additions
+## Future Considerations
 
-- Limited edition series (new shoots)
-- Signature pricing tier
+- Limited edition series (numbered, signed)
 - Custom sizes by request
+- Interior designer trade pricing (20-30% off retail)
