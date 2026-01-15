@@ -32,6 +32,28 @@ class CreateCheckoutSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check for gift card code
+        gift_card_code = request.data.get('gift_card_code', '').strip().upper()
+        gift_card = None
+        gift_card_amount = 0
+
+        if gift_card_code:
+            try:
+                gift_card = GiftCard.objects.get(code=gift_card_code)
+                if not gift_card.is_valid:
+                    return Response(
+                        {'error': 'Gift card is no longer valid'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                # Calculate how much of the gift card to use
+                cart_total = cart.subtotal
+                gift_card_amount = min(gift_card.remaining_balance, cart_total)
+            except GiftCard.DoesNotExist:
+                return Response(
+                    {'error': 'Gift card not found'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         line_items = []
         for item in cart.items.select_related('variant__photo', 'product'):
             if item.variant:
@@ -66,21 +88,39 @@ class CreateCheckoutSessionView(APIView):
                 })
 
         try:
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=line_items,
-                mode='payment',
-                success_url=f"{settings.FRONTEND_URL}/order/success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.FRONTEND_URL}/cart",
-                shipping_address_collection={
+            # Build checkout session params
+            checkout_params = {
+                'payment_method_types': ['card'],
+                'line_items': line_items,
+                'mode': 'payment',
+                'success_url': f"{settings.FRONTEND_URL}/order/success?session_id={{CHECKOUT_SESSION_ID}}",
+                'cancel_url': f"{settings.FRONTEND_URL}/cart",
+                'shipping_address_collection': {
                     'allowed_countries': ['US'],
                 },
-                billing_address_collection='required',
-                allow_promotion_codes=True,
-                metadata={
+                'billing_address_collection': 'required',
+                'allow_promotion_codes': True,
+                'metadata': {
                     'cart_id': str(cart.id),
                 },
-            )
+            }
+
+            # Apply gift card as a Stripe coupon/discount
+            if gift_card and gift_card_amount > 0:
+                # Create a one-time coupon for the gift card amount
+                coupon = stripe.Coupon.create(
+                    amount_off=int(gift_card_amount * 100),
+                    currency='usd',
+                    duration='once',
+                    name=f'Gift Card {gift_card.code}',
+                )
+                checkout_params['discounts'] = [{'coupon': coupon.id}]
+                checkout_params['metadata']['gift_card_code'] = gift_card.code
+                checkout_params['metadata']['gift_card_amount'] = str(gift_card_amount)
+                # Don't allow additional promo codes when gift card is applied
+                checkout_params['allow_promotion_codes'] = False
+
+            checkout_session = stripe.checkout.Session.create(**checkout_params)
 
             return Response({
                 'checkout_url': checkout_session.url,
@@ -127,7 +167,8 @@ class StripeWebhookView(APIView):
 
     def handle_checkout_completed(self, session):
         """Create order from completed checkout session."""
-        cart_id = session.get('metadata', {}).get('cart_id')
+        metadata = session.get('metadata', {})
+        cart_id = metadata.get('cart_id')
         if not cart_id:
             return
 
@@ -182,6 +223,24 @@ class StripeWebhookView(APIView):
                 if item.product.track_inventory:
                     item.product.stock_quantity -= item.quantity
                     item.product.save()
+
+        # Redeem gift card if one was used
+        gift_card_code = metadata.get('gift_card_code')
+        gift_card_amount = metadata.get('gift_card_amount')
+        if gift_card_code and gift_card_amount:
+            try:
+                gift_card = GiftCard.objects.get(code=gift_card_code)
+                amount = Decimal(gift_card_amount)
+                # Redeem the gift card and create redemption record
+                redeemed = gift_card.redeem(amount)
+                if redeemed > 0:
+                    GiftCardRedemption.objects.create(
+                        gift_card=gift_card,
+                        order=order,
+                        amount=redeemed,
+                    )
+            except (GiftCard.DoesNotExist, Exception):
+                pass  # Don't fail the order if gift card redemption fails
 
         cart.items.all().delete()
 
