@@ -1,7 +1,6 @@
 # Photography Store Business Strategy
 ## store.matthewraynor.com
 
-**Date:** January 2026  
 **Target Market:** Hamptons luxury art buyers, interior designers, collectors
 
 ---
@@ -12,13 +11,12 @@
 - High concentration of wealthy buyers seeking "bright, fun, outdoor scenes"
 - Estate owners prefer large colorful works for prominent wall space
 - Aerial/drone photography of local landmarks highly desirable
-- Art collecting "in the DNA" of Hamptons residents
 - Strong interior designer presence sourcing for clients
 
 ### Competitive Positioning
 - Gray Malin benchmark: $2,500-$4,000 for comparable sizes
-- Your pricing ($600-$3,400 aluminum) is competitive
-- Differentiators: Local connection, unique aerial access, limited editions, ChromaLuxe quality
+- Your pricing ($675-$3,400 aluminum) is competitive
+- Differentiators: Local connection, unique aerial access, premium quality
 
 ---
 
@@ -26,14 +24,13 @@
 
 ### Direct-to-Consumer (Primary)
 - Website sales to HNWIs and aspirational luxury buyers
-- Price range: $150 (paper) to $5,000+ (large aluminum)
+- Price range: $175 (paper) to $3,400+ (large aluminum)
 - Expected conversion: 0.5-1.5% (luxury standard)
 
-### Interior Designer Trade Program
+### Interior Designer Trade Program (Future)
 - 20-30% discount off retail
 - Require business license + resale certificate
 - Steady B2B revenue stream
-- Designers always sourcing for Hamptons projects
 
 ### Custom Commissions
 - Estate aerial photography: $2,500-$10,000+
@@ -57,7 +54,6 @@
 
 ### Why NOT Paid Ads (Initially)
 - Customer acquisition cost: $50-150+ per customer for luxury
-- 912M global ad blocker users
 - Focus budget on owned channels first
 - Use retargeting ads only after organic foundation built
 
@@ -66,17 +62,17 @@
 ## 4. Fulfillment Model
 
 ### Made-to-Order (Zero Inventory)
-- Partner with professional lab (Shiny Prints recommended)
-- Upload high-res files, they handle production
-- ChromaLuxe dye-sublimation aluminum prints
+- Partner with professional lab for aluminum prints
 - Lab handles printing, packaging, shipping
-- You never touch product
+- You never touch product (for aluminum)
+- Paper prints produced in-house
 
-### Fulfillment Requirements
+### Fulfillment Details
 - Float mount backing (ready to hang)
-- Professional packaging (foam corners, kraft paper, branded sticker)
+- Professional packaging
 - Tracking provided to customer
-- 14-21 business day production time
+- 14-21 business day production time (aluminum)
+- 5-7 business days (paper)
 
 ### Pricing Formula
 ```
@@ -102,7 +98,7 @@ Retail Price = (Wholesale Cost + Shipping + Tax) × 3.5
 | 30x40 | $1,850 | ~$527 | 3.5x |
 | 40x60 | $3,400 | ~$975 | 3.5x |
 
-### Trade Discount
+### Future: Trade Discount
 - Interior designers: 20-30% off retail
 - Requires business license + resale certificate
 - Tax-exempt with valid certificate
@@ -114,24 +110,18 @@ Retail Price = (Wholesale Cost + Shipping + Tax) × 3.5
 ### Copyright
 - Automatically owned upon creation
 - Register key works with Copyright Office ($65/batch)
-- Include copyright notice: © 2026 Matthew Raynor
+- Include copyright notice: © Matthew Raynor
 - License for display only, retain reproduction rights
-
-### Limited Editions
-- 200 or fewer per image for VARA protection
-- Numbered, signed certificates of authenticity
-- Track edition inventory carefully
 
 ### Sales Tax
 - **New York:** Collect from day one (home state nexus)
 - **Other states:** Only after $100K sales OR 200 transactions
-- **Solution:** TaxJar or Avalara automation from launch
+- **Solution:** TaxJar or Avalara automation, or manual NY collection initially
 - **Trade sales:** Tax-exempt with valid resale certificate
 
 ### Business Structure
 - Consult CPA for LLC vs sole proprietor decision
 - Quarterly estimated tax payments required
-- Self-employment tax: 15.3%
 
 ---
 
@@ -143,15 +133,14 @@ Retail Price = (Wholesale Cost + Shipping + Tax) × 3.5
 ### Key Messages
 1. Local connection (Hamptons resident, knows the land)
 2. Unique perspective (aerial access, drone expertise)
-3. Premium quality (ChromaLuxe, archival, museum-grade)
-4. Limited availability (editions of 200 or fewer)
-5. Artist story (resilience, transformation, authenticity)
+3. Premium quality (archival, museum-grade)
+4. Artist story (resilience, transformation, authenticity)
 
 ### Content Pillars
 - Behind-the-scenes (shooting process, locations)
 - Finished work (beauty shots, room mockups)
 - Hamptons lifestyle (local landmarks, seasonal content)
-- Artist journey (personal story, accessibility)
+- Artist journey (personal story)
 
 ---
 
@@ -160,20 +149,19 @@ Retail Price = (Wholesale Cost + Shipping + Tax) × 3.5
 ### Target Publications
 | Publication | Focus | Opportunity |
 |-------------|-------|-------------|
-| James Lane Post | Culture, art, lifestyle | Artist feature, new collection |
+| James Lane Post | Culture, art, lifestyle | Artist feature |
 | Social Life Magazine | Luxury lifestyle | Gift guide, artist profile |
-| Hamptons Magazine | Fashion, travel, local | Home feature, aerial portfolio |
+| Hamptons Magazine | Fashion, travel, local | Home feature |
 | Hamptons Cottages & Gardens | Homes, art, design | Designer collaboration |
 | East Hampton Star | Local news, arts | Local artist story |
 
 ### Story Angles
 - "Local photographer captures Hamptons from above"
 - "From fisherman to fine art photographer"
-- "The 12 Windmills: Documenting Hamptons history"
 - "Aerial art for estate walls"
 
 ### Events
-- Hamptons Fine Art Fair (July 2025)
+- Hamptons Fine Art Fair (summer)
 - Southampton Artists Association exhibitions
 - Gallery pop-ups during summer season
 
@@ -195,23 +183,17 @@ Retail Price = (Wholesale Cost + Shipping + Tax) × 3.5
 ### Marketing Metrics
 - Email open rate: >25%
 - Email click rate: >3%
-- Instagram engagement: >2%
 - Organic search traffic: Growing monthly
 
 ---
 
-## 10. Launch Checklist
+## 10. Pre-Launch Checklist
 
-### Pre-Launch
-- [ ] Select 20-30 strongest images
-- [ ] Organize into collections
-- [ ] Get wholesale pricing from fulfillment lab
-- [ ] Calculate retail pricing
-- [ ] Build e-commerce platform
-- [ ] Set up email platform + welcome sequence
-- [ ] Create email signup incentive
-- [ ] Register for NY sales tax
-- [ ] Set up sales tax automation
+### Business Setup
+- [ ] Switch Stripe to live mode
+- [ ] Configure sales tax collection (NY at minimum)
+- [ ] Finalize fulfillment lab relationship
+- [ ] Set up accounting/bookkeeping
 
 ### Launch
 - [ ] Soft launch to email list
