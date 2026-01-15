@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getCart, updateCartItem, removeCartItem, createCheckoutSession } from '@/lib/api';
+import { getCart, updateCartItem, removeCartItem, createCheckoutSession, checkGiftCard } from '@/lib/api';
 import type { Cart } from '@/types';
 
 export default function CartPage() {
@@ -11,6 +11,12 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+
+  // Gift card state
+  const [giftCardCode, setGiftCardCode] = useState('');
+  const [appliedGiftCard, setAppliedGiftCard] = useState<{ code: string; balance: number } | null>(null);
+  const [giftCardError, setGiftCardError] = useState('');
+  const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
   const fetchCart = async () => {
     try {
@@ -55,13 +61,47 @@ export default function CartPage() {
   const handleCheckout = async () => {
     setCheckingOut(true);
     try {
-      const { checkout_url } = await createCheckoutSession();
+      const { checkout_url } = await createCheckoutSession(appliedGiftCard?.code);
       window.location.href = checkout_url;
     } catch (error) {
       console.error('Failed to create checkout session:', error);
       setCheckingOut(false);
     }
   };
+
+  const handleApplyGiftCard = async () => {
+    if (!giftCardCode.trim()) return;
+
+    setApplyingGiftCard(true);
+    setGiftCardError('');
+
+    try {
+      const result = await checkGiftCard(giftCardCode.trim());
+      if (result.valid && result.balance) {
+        setAppliedGiftCard({
+          code: giftCardCode.trim().toUpperCase(),
+          balance: parseFloat(result.balance),
+        });
+        setGiftCardCode('');
+      } else {
+        setGiftCardError(result.error || 'Invalid gift card');
+      }
+    } catch (error) {
+      setGiftCardError('Gift card not found');
+    } finally {
+      setApplyingGiftCard(false);
+    }
+  };
+
+  const handleRemoveGiftCard = () => {
+    setAppliedGiftCard(null);
+    setGiftCardError('');
+  };
+
+  // Calculate totals with gift card
+  const subtotal = cart ? parseFloat(cart.subtotal) : 0;
+  const giftCardDiscount = appliedGiftCard ? Math.min(appliedGiftCard.balance, subtotal) : 0;
+  const estimatedTotal = subtotal - giftCardDiscount;
 
   if (loading) {
     return (
@@ -172,10 +212,67 @@ export default function CartPage() {
 
       {/* Summary */}
       <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-center mb-6">
-          <span className="text-lg text-gray-900 dark:text-gray-100">Subtotal</span>
-          <span className="text-2xl font-medium text-gray-900 dark:text-gray-100">${cart.subtotal}</span>
+        {/* Gift Card Section */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Gift Card
+          </label>
+          {appliedGiftCard ? (
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+              <div>
+                <span className="font-medium text-green-800 dark:text-green-300">{appliedGiftCard.code}</span>
+                <span className="text-sm text-green-600 dark:text-green-400 ml-2">
+                  (${appliedGiftCard.balance.toFixed(2)} available)
+                </span>
+              </div>
+              <button
+                onClick={handleRemoveGiftCard}
+                className="text-sm text-red-600 dark:text-red-400 hover:text-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={giftCardCode}
+                onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
+                placeholder="Enter gift card code"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+              />
+              <button
+                onClick={handleApplyGiftCard}
+                disabled={applyingGiftCard || !giftCardCode.trim()}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50"
+              >
+                {applyingGiftCard ? '...' : 'Apply'}
+              </button>
+            </div>
+          )}
+          {giftCardError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{giftCardError}</p>
+          )}
         </div>
+
+        {/* Totals */}
+        <div className="space-y-2 mb-6">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+            <span className="text-gray-900 dark:text-gray-100">${subtotal.toFixed(2)}</span>
+          </div>
+          {appliedGiftCard && giftCardDiscount > 0 && (
+            <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+              <span>Gift Card ({appliedGiftCard.code})</span>
+              <span>-${giftCardDiscount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-lg font-medium text-gray-900 dark:text-gray-100">Estimated Total</span>
+            <span className="text-2xl font-medium text-gray-900 dark:text-gray-100">${estimatedTotal.toFixed(2)}</span>
+          </div>
+        </div>
+
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Shipping and taxes calculated at checkout.
         </p>

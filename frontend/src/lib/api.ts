@@ -107,9 +107,10 @@ export async function clearCart() {
 }
 
 // Checkout
-export async function createCheckoutSession() {
+export async function createCheckoutSession(giftCardCode?: string) {
   return fetchApi<{ checkout_url: string; session_id: string }>('/checkout/', {
     method: 'POST',
+    body: JSON.stringify({ gift_card_code: giftCardCode }),
   });
 }
 

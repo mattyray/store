@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
-from apps.core.models import GiftCard, Subscriber
+from apps.core.models import GiftCard, GiftCardRedemption, Subscriber
 from apps.core.emails import send_gift_card_email, send_gift_card_purchase_confirmation
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
