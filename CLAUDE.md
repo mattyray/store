@@ -310,10 +310,27 @@ Defined in `ProductVariant.DEFAULT_PRICING` - used by bulk create actions.
 
 ---
 
-## Current Status / TODO
-- Stripe checkout integration complete
-- Gift card system implemented
-- Newsletter subscription (MailerLite) working
+## Current Status
+
+### Completed
+- Stripe checkout integration (currently in sandbox/test mode)
+- Gift card purchase system
+- Newsletter subscription (MailerLite)
 - Contact form with honeypot spam protection
-- Dark mode fully supported across all pages
+- Dark mode fully supported
 - Image aspect ratio handling for accurate crop previews
+- All collections and product pages
+- Cart functionality
+- Order confirmation emails
+
+### Pre-Launch TODO
+- [ ] Switch Stripe from sandbox to live mode
+- [ ] Configure sales tax (TaxJar/Avalara or manual NY collection)
+- [ ] Final content review
+- [ ] DNS/domain verification
+
+### Future Enhancements
+- Gift card redemption at checkout (purchase works, redemption not implemented)
+- Stripe promotion codes (`allow_promotion_codes=True` in checkout)
+- Customer reviews/testimonials
+- "See in room" mockup tool
