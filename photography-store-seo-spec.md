@@ -1,8 +1,6 @@
 # SEO Specification
 ## store.matthewraynor.com
 
-**Version:** 1.0  
-**Date:** January 2026  
 **Goal:** Rank for Hamptons art, aerial photography, and fine art print keywords
 
 ---
@@ -10,32 +8,28 @@
 ## 1. Target Keywords
 
 ### Primary Keywords (High Intent)
-| Keyword | Search Volume | Difficulty | Priority |
-|---------|---------------|------------|----------|
-| hamptons art prints | Medium | Low | #1 |
-| hamptons photography prints | Medium | Low | #1 |
-| aerial photography hamptons | Low | Low | #1 |
-| hamptons wall art | Medium | Medium | #2 |
-| montauk photography prints | Low | Low | #2 |
-| east hampton art | Low | Low | #2 |
+| Keyword | Priority |
+|---------|----------|
+| hamptons art prints | #1 |
+| hamptons photography prints | #1 |
+| aerial photography hamptons | #1 |
+| hamptons wall art | #2 |
+| montauk photography prints | #2 |
+| east hampton art | #2 |
 
-### Secondary Keywords (Discovery)
-| Keyword | Intent | Use In |
-|---------|--------|--------|
-| hamptons fine art | Browse | Homepage, About |
-| aluminum photo prints | Product | Product pages |
-| chromaluxe prints | Product | Product pages |
-| drone photography art | Browse | Collection pages |
-| beach photography prints | Browse | Collection pages |
-| lighthouse art prints | Browse | Collection pages |
-| windmill photography | Browse | Collection pages |
+### Secondary Keywords
+| Keyword | Use In |
+|---------|--------|
+| hamptons fine art | Homepage, About |
+| aluminum photo prints | Product pages |
+| drone photography art | Collection pages |
+| beach photography prints | Collection pages |
+| lighthouse art prints | Collection pages |
 
-### Long-Tail Keywords (Collection Specific)
+### Long-Tail Keywords
 - "montauk lighthouse wall art"
 - "hamptons beach aerial photography"
-- "southampton windmill prints"
 - "east end drone photography"
-- "hamptons estate aerial photos"
 - "long island fine art photography"
 
 ---
@@ -48,150 +42,110 @@ Homepage:
 Hamptons Fine Art Photography | Aerial Prints by Matthew Raynor
 
 Collection Page:
-Above the East End | Aerial Hamptons Photography Prints
+[Collection Name] | Hamptons Photography Prints
 
 Product Page:
 [Image Title] - Hamptons Aerial Print | Matthew Raynor Photography
 
 About Page:
 About Matthew Raynor | Hamptons Aerial Photographer
-
-Contact Page:
-Contact | Custom Hamptons Aerial Photography
 ```
 
 ### Meta Descriptions (155 characters max)
 ```
 Homepage:
-Fine art aerial photography of the Hamptons. Limited edition aluminum and paper prints by local photographer Matthew Raynor. Free shipping over $500.
+Fine art aerial photography of the Hamptons. Premium aluminum and paper prints by local photographer Matthew Raynor. Free shipping over $500.
 
 Collection Page:
-Explore [Collection Name] - stunning aerial views of the Hamptons coastline. Museum-quality ChromaLuxe aluminum prints. Limited editions available.
+Explore [Collection Name] - stunning views of the Hamptons coastline. Museum-quality aluminum prints. Ships in 14-21 days.
 
 Product Page:
-[Image Title] - Available as aluminum or paper print. Sizes from 16x24 to 40x60. Certificate of authenticity included. Ships in 14-21 days.
+[Image Title] - Available as aluminum or paper print. Sizes from 16x24 to 40x60. Certificate of authenticity included.
 ```
 
-### Header Structure (Every Page)
+### Header Structure
 ```
 H1: One per page, includes primary keyword
-H2: Section headers, secondary keywords
-H3: Subsections as needed
+H2: Section headers
+H3: Subsections
 
 Example Product Page:
 H1: Montauk Lighthouse at Dawn - Aerial Fine Art Print
 H2: About This Photograph
 H2: Available Sizes & Materials
 H2: Shipping & Returns
-H2: You May Also Like
 ```
 
 ### URL Structure
 ```
 Good:
-/collections/aerial-hamptons
-/prints/montauk-lighthouse-dawn
+/collections/aerial-photography
+/photos/montauk-lighthouse-dawn
 /about
 
 Bad:
 /collections/12345
-/prints/IMG_4532
-/page?id=about
+/photos/IMG_4532
 ```
 
 ---
 
-## 3. Image SEO (Critical for Photography)
+## 3. Image SEO
 
 ### File Naming
 ```
 Good:
 montauk-lighthouse-aerial-photography.jpg
 hamptons-beach-drone-sunset.jpg
-southampton-windmill-fine-art.jpg
 
 Bad:
 IMG_4532.jpg
 DSC_0001.jpg
-final_edit_v3.jpg
 ```
 
-### Alt Text (Descriptive, Include Keywords)
+### Alt Text
 ```
 Good:
-"Aerial photograph of Montauk Lighthouse at sunrise, fine art print by Matthew Raynor"
-"Drone photography of Southampton beach, Hamptons aerial art"
+"Aerial photograph of Montauk Lighthouse at sunrise by Matthew Raynor"
+"Drone photography of Southampton beach, Hamptons"
 
 Bad:
 "lighthouse"
 "image1"
-"photo"
 ```
 
 ### Image Optimization
-- **Format:** WebP with JPEG fallback
-- **Compression:** 80% quality for web display
-- **Lazy loading:** Below-fold images
-- **Responsive:** srcset for multiple sizes
-- **CDN:** Cloudinary for delivery
-
-### Image Sitemap
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  <url>
-    <loc>https://store.matthewraynor.com/prints/montauk-lighthouse</loc>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/.../montauk-lighthouse.jpg</image:loc>
-      <image:title>Montauk Lighthouse Aerial Photography Print</image:title>
-      <image:caption>Fine art aerial photograph of Montauk Lighthouse at sunrise</image:caption>
-    </image:image>
-  </url>
-</urlset>
-```
+- Format: WebP with JPEG fallback (Next.js handles this)
+- Lazy loading: Below-fold images
+- Responsive: Next.js Image component handles srcset
+- CDN: AWS S3 + CloudFront (or S3 direct)
 
 ---
 
 ## 4. Technical SEO
 
-### Site Speed (Target: <3 seconds)
-- [ ] Enable compression (gzip/brotli)
-- [ ] Minimize CSS/JS
-- [ ] Lazy load images
-- [ ] Use CDN for images (Cloudinary)
-- [ ] Cache static assets
-- [ ] Optimize server response time
+### Site Speed
+- [x] Compression enabled (Netlify)
+- [x] Lazy load images
+- [x] CDN for images (S3)
+- [x] Next.js optimizations
 
 ### Mobile Optimization
-- [ ] Responsive design (all breakpoints)
-- [ ] Touch-friendly buttons (min 44px)
-- [ ] No horizontal scroll
-- [ ] Readable text without zoom
-- [ ] Test with Google Mobile-Friendly Tool
+- [x] Responsive design
+- [x] Touch-friendly buttons
+- [x] No horizontal scroll
+- [x] Readable text without zoom
 
-### Core Web Vitals
-| Metric | Target | How |
-|--------|--------|-----|
-| LCP (Largest Contentful Paint) | <2.5s | Optimize hero images |
-| FID (First Input Delay) | <100ms | Minimize JS |
-| CLS (Cumulative Layout Shift) | <0.1 | Set image dimensions |
+### Core Web Vitals Targets
+| Metric | Target |
+|--------|--------|
+| LCP (Largest Contentful Paint) | <2.5s |
+| FID (First Input Delay) | <100ms |
+| CLS (Cumulative Layout Shift) | <0.1 |
 
-### XML Sitemap
-```
-Location: https://store.matthewraynor.com/sitemap.xml
+### Sitemap & Robots
 
-Include:
-- All collection pages
-- All product pages
-- About, Contact, Shipping pages
-- Image sitemap
-
-Update: Automatically on new content
-Submit: Google Search Console, Bing Webmaster Tools
-```
-
-### Robots.txt
+**robots.txt:**
 ```
 User-agent: *
 Allow: /
@@ -204,23 +158,20 @@ Sitemap: https://store.matthewraynor.com/sitemap.xml
 ```
 
 ### Canonical URLs
-```html
-<!-- On every page -->
-<link rel="canonical" href="https://store.matthewraynor.com/prints/montauk-lighthouse" />
+- Include on every page to prevent duplicate content
 
-<!-- Prevent duplicate content from filters/sorting -->
-```
+---
 
-### Schema Markup (Structured Data)
+## 5. Schema Markup
 
-**Product Schema (Every Product Page)**
+### Product Schema (Product Pages)
 ```json
 {
   "@context": "https://schema.org",
   "@type": "Product",
   "name": "Montauk Lighthouse at Dawn - Aerial Print",
-  "image": "https://res.cloudinary.com/.../montauk-lighthouse.jpg",
-  "description": "Fine art aerial photograph of Montauk Lighthouse...",
+  "image": "https://s3.../montauk-lighthouse.jpg",
+  "description": "Fine art aerial photograph...",
   "brand": {
     "@type": "Brand",
     "name": "Matthew Raynor Photography"
@@ -231,22 +182,16 @@ Sitemap: https://store.matthewraynor.com/sitemap.xml
     "highPrice": "3400",
     "priceCurrency": "USD",
     "availability": "https://schema.org/InStock"
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "5",
-    "reviewCount": "12"
   }
 }
 ```
 
-**Local Business Schema (About Page)**
+### Local Business Schema (About Page)
 ```json
 {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   "name": "Matthew Raynor Photography",
-  "image": "https://store.matthewraynor.com/logo.jpg",
   "address": {
     "@type": "PostalAddress",
     "addressLocality": "Hampton Bays",
@@ -258,233 +203,89 @@ Sitemap: https://store.matthewraynor.com/sitemap.xml
 }
 ```
 
-**BreadcrumbList Schema**
-```json
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://store.matthewraynor.com"},
-    {"@type": "ListItem", "position": 2, "name": "Aerial Photography", "item": "https://store.matthewraynor.com/collections/aerial-hamptons"},
-    {"@type": "ListItem", "position": 3, "name": "Montauk Lighthouse"}
-  ]
-}
-```
-
----
-
-## 5. Content SEO
-
-### Collection Page Content
-Each collection page needs:
-- 150-300 word description
-- Include target keywords naturally
-- Story behind the collection
-- What makes it unique
-
-```
-Example - Above the East End Collection:
-
-"Above the East End captures the Hamptons from a perspective few ever see. 
-These aerial photographs reveal the geometry of our coastline—the curves of 
-Montauk's beaches, the precise rows of Southampton vineyards, the scattered 
-sailboats off Sag Harbor.
-
-Shot exclusively by drone over three years, each image in this collection 
-represents a unique moment when light, weather, and landscape aligned perfectly. 
-From the golden hour glow on Ditch Plains to the abstract patterns of Mecox Bay, 
-these prints bring the East End's beauty into your home.
-
-Available as museum-quality ChromaLuxe aluminum prints in sizes up to 40x60 inches."
-```
-
-### Product Page Content
-Each product needs:
-- Unique title (not just filename)
-- 100-200 word description
-- Location information
-- Story/context
-- Technical details
-
-### Blog/Journal (Future)
-Content ideas for organic traffic:
-- "Best Beaches to Photograph in the Hamptons"
-- "How Aerial Photography Captures the East End"
-- "The Story Behind [Image Name]"
-- "Decorating with Hamptons Photography"
-- "Limited Edition vs Open Edition: What's the Difference?"
-
 ---
 
 ## 6. Local SEO
 
 ### Google Business Profile
-- [ ] Create/claim profile for "Matthew Raynor Photography"
-- [ ] Add all services: Fine art prints, aerial photography, custom commissions
+- [ ] Create/claim profile
+- [ ] Add services: Fine art prints, aerial photography
 - [ ] Upload portfolio images
 - [ ] Add website link
-- [ ] Encourage reviews from buyers
-- [ ] Post updates (new work, events, shows)
-
-### Local Keywords to Target
-- "hamptons photographer"
-- "east hampton art gallery"
-- "montauk fine art"
-- "southampton wall art"
-- "sag harbor photography"
-- "long island aerial photography"
+- [ ] Encourage reviews
 
 ### Local Directories
-- [ ] Yelp (Photography category)
 - [ ] Southampton Artists Association
 - [ ] Hamptons.com business directory
 - [ ] East End Arts directory
 
 ---
 
-## 7. Link Building
+## 7. Content Strategy
 
-### Internal Linking
-- Link between related products
-- Link collections to individual products
-- Link About page to featured work
-- Use descriptive anchor text
+### Collection Pages
+Each needs:
+- 150-300 word description
+- Keywords naturally included
+- Story behind the collection
 
-### External Link Opportunities
-| Source | Type | How to Get |
-|--------|------|------------|
-| Local publications | Editorial | PR outreach, features |
-| Interior design blogs | Guest post | Offer expert content |
-| Photography blogs | Feature | Submit to roundups |
-| Artist directories | Listing | Submit profile |
-| Local business directories | Citation | Claim listings |
+### Product Pages
+Each needs:
+- Unique title
+- 100-200 word description
+- Location information
 
-### Backlink Priorities
-1. Local Hamptons publications (James Lane Post, etc.)
-2. Photography/art publications
-3. Interior design resources
-4. Local business directories
+### Future: Blog Content Ideas
+- "Best Beaches to Photograph in the Hamptons"
+- "How Aerial Photography Captures the East End"
+- "Decorating with Hamptons Photography"
 
 ---
 
-## 8. E-commerce SEO Specifics
+## 8. Implementation Checklist
 
-### Product Variants
-- Use canonical tags to main product
-- Don't create separate URLs for each size
-- Handle with JavaScript, single URL
+### Done
+- [x] URL structure defined
+- [x] Mobile responsive
+- [x] Page speed optimized
+- [x] Images on S3 CDN
 
-### Out of Stock / Limited Editions
-- Keep page live (don't 404)
-- Show "Sold Out" status
-- Offer "Notify me" option
-- Maintain SEO value
-
-### Reviews
-- Implement review schema
-- Display ratings on product pages
-- Encourage customer reviews
-- Reviews appear in search results
-
-### Faceted Navigation (Filters)
-- Use JavaScript for filtering (no new URLs)
-- Or use canonical tags to main page
-- Prevent Google from indexing filter combinations
-
----
-
-## 9. Measurement & Tools
-
-### Google Search Console
-- [ ] Verify domain
-- [ ] Submit sitemap
-- [ ] Monitor indexing status
-- [ ] Track search queries
-- [ ] Fix crawl errors
-- [ ] Monitor Core Web Vitals
-
-### Google Analytics 4
-- [ ] Install tracking
-- [ ] Set up e-commerce tracking
-- [ ] Track conversions by source
-- [ ] Monitor organic traffic growth
-
-### Key Metrics to Track
-| Metric | Target | Frequency |
-|--------|--------|-----------|
-| Organic sessions | Growing | Weekly |
-| Keyword rankings | Top 10 | Monthly |
-| Indexed pages | All products | Monthly |
-| Page speed | <3s | Monthly |
-| Backlinks | Growing | Monthly |
-
-### SEO Tools
-- **Google Search Console:** Free, essential
-- **Google Analytics 4:** Free, essential
-- **Ubersuggest:** Free tier for keyword research
-- **PageSpeed Insights:** Free, speed testing
-- **Schema Markup Validator:** Free, test structured data
-
----
-
-## 10. SEO Launch Checklist
-
-### Pre-Launch
-- [ ] Keyword research complete
-- [ ] URL structure defined
-- [ ] Title tags written
-- [ ] Meta descriptions written
-- [ ] Image alt text added
-- [ ] Schema markup implemented
-- [ ] Sitemap generated
-- [ ] Robots.txt configured
-- [ ] Canonical tags in place
-- [ ] Mobile responsive verified
-- [ ] Page speed optimized
-
-### Launch
-- [ ] Submit sitemap to Google Search Console
-- [ ] Submit sitemap to Bing Webmaster Tools
-- [ ] Verify all pages indexed
+### To Do
+- [ ] Review/update title tags
+- [ ] Review/update meta descriptions
+- [ ] Add image alt text throughout
+- [ ] Implement schema markup
+- [ ] Generate sitemap
+- [ ] Set up Google Search Console
 - [ ] Set up Google Analytics 4
 - [ ] Create Google Business Profile
-- [ ] Test all schema with validator
-
-### Post-Launch (Ongoing)
-- [ ] Monitor Search Console weekly
-- [ ] Track keyword rankings monthly
-- [ ] Add new content quarterly
-- [ ] Build backlinks ongoing
-- [ ] Update stale content annually
-- [ ] Technical audit quarterly
 
 ---
 
-## Appendix: Quick Reference
+## 9. Measurement
+
+### Tools
+- Google Search Console (free, essential)
+- Google Analytics 4 (free, essential)
+- PageSpeed Insights (free)
+
+### Key Metrics
+| Metric | Track |
+|--------|-------|
+| Organic sessions | Weekly |
+| Keyword rankings | Monthly |
+| Page speed | Monthly |
+| Core Web Vitals | Monthly |
+
+---
+
+## Quick Reference
 
 ### Character Limits
-| Element | Limit | Display |
-|---------|-------|---------|
-| Title tag | 60 chars | Full in search |
-| Meta description | 155 chars | Full in search |
-| URL | 75 chars | Clean, readable |
-| Alt text | 125 chars | Screen readers |
-| H1 | 70 chars | One per page |
-
-### Page Speed Targets
-| Metric | Mobile | Desktop |
-|--------|--------|---------|
-| Time to First Byte | <600ms | <200ms |
-| First Contentful Paint | <1.8s | <1s |
-| Largest Contentful Paint | <2.5s | <1.5s |
-| Time to Interactive | <3.8s | <2s |
-
-### Priority by Page Type
-| Page | SEO Priority | Focus |
-|------|--------------|-------|
-| Homepage | High | Brand + primary keywords |
-| Collections | High | Category keywords |
-| Products | High | Long-tail keywords |
-| About | Medium | Local + brand |
-| Contact | Low | Local citations |
-| Shipping | Low | Trust signals |
+| Element | Limit |
+|---------|-------|
+| Title tag | 60 chars |
+| Meta description | 155 chars |
+| URL | 75 chars |
+| Alt text | 125 chars |
+| H1 | 70 chars |
