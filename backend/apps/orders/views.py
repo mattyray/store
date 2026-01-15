@@ -25,6 +25,8 @@ def get_or_create_cart(request):
 
 class CartView(APIView):
     """View and manage shopping cart."""
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         """Get current cart contents."""
@@ -42,6 +44,8 @@ class CartView(APIView):
 
 class CartItemView(APIView):
     """Add items to cart."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         """Add item to cart - supports both variants and products."""
@@ -82,6 +86,8 @@ class CartItemView(APIView):
 
 class CartItemDetailView(APIView):
     """Update or delete a cart item."""
+    authentication_classes = []
+    permission_classes = []
 
     def get_cart_item(self, request, item_id):
         """Get cart item ensuring it belongs to current cart."""
@@ -125,6 +131,8 @@ class CartItemDetailView(APIView):
 
 class OrderTrackingView(APIView):
     """Look up order by order number and email for customers."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         """Look up order status."""
