@@ -141,6 +141,8 @@ class NewsletterUnsubscribeView(APIView):
 
 class GiftCardPurchaseView(APIView):
     """Purchase a gift card."""
+    authentication_classes = []
+    permission_classes = []
 
     ALLOWED_AMOUNTS = [100, 250, 500, 1000, 2500]
 
@@ -216,6 +218,8 @@ class GiftCardPurchaseView(APIView):
 
 class GiftCardCheckView(APIView):
     """Check gift card balance."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         code = request.data.get('code', '').strip().upper()

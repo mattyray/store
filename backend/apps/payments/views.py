@@ -99,7 +99,6 @@ class CreateCheckoutSessionView(APIView):
                     'allowed_countries': ['US'],
                 },
                 'billing_address_collection': 'required',
-                'allow_promotion_codes': True,
                 'metadata': {
                     'cart_id': str(cart.id),
                 },
@@ -117,8 +116,10 @@ class CreateCheckoutSessionView(APIView):
                 checkout_params['discounts'] = [{'coupon': coupon.id}]
                 checkout_params['metadata']['gift_card_code'] = gift_card.code
                 checkout_params['metadata']['gift_card_amount'] = str(gift_card_amount)
-                # Don't allow additional promo codes when gift card is applied
-                checkout_params['allow_promotion_codes'] = False
+            else:
+                # Only allow promo codes when no gift card is applied
+                # (Stripe doesn't allow both discounts and allow_promotion_codes)
+                checkout_params['allow_promotion_codes'] = True
 
             checkout_session = stripe.checkout.Session.create(**checkout_params)
 
