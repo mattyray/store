@@ -41,7 +41,7 @@ class GiftCard(models.Model):
     """Gift card for store credit."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(max_length=16, unique=True, editable=False)
+    code = models.CharField(max_length=19, unique=True, editable=False)
     initial_amount = models.DecimalField(max_digits=8, decimal_places=2)
     remaining_balance = models.DecimalField(max_digits=8, decimal_places=2)
 
