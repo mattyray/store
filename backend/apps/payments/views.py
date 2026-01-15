@@ -74,6 +74,7 @@ class CreateCheckoutSessionView(APIView):
                     'allowed_countries': ['US'],
                 },
                 billing_address_collection='required',
+                allow_promotion_codes=True,
                 metadata={
                     'cart_id': str(cart.id),
                 },
