@@ -18,6 +18,8 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class ContactFormView(APIView):
     """Handle contact form submissions."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         name = request.data.get('name', '').strip()
@@ -53,6 +55,8 @@ class HealthCheckView(APIView):
 
 class NewsletterSubscribeView(APIView):
     """Subscribe to newsletter."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
