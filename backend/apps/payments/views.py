@@ -232,6 +232,19 @@ class StripeWebhookView(APIView):
         except Exception:
             pass
 
+        # Add gift card purchaser to subscriber list
+        if gift_card.purchaser_email:
+            try:
+                Subscriber.objects.get_or_create(
+                    email=gift_card.purchaser_email.lower(),
+                    defaults={
+                        'name': gift_card.purchaser_name,
+                        'source': 'gift_card_purchase',
+                    }
+                )
+            except Exception:
+                pass
+
 
 class OrderLookupView(APIView):
     """Look up order by Stripe session ID."""
