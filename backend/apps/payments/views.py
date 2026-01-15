@@ -183,7 +183,7 @@ class StripeWebhookView(APIView):
 
         order = Order.objects.create(
             stripe_checkout_id=session['id'],
-            stripe_payment_intent=session.get('payment_intent', ''),
+            stripe_payment_intent=session.get('payment_intent') or '',
             customer_email=session.get('customer_details', {}).get('email', ''),
             customer_name=shipping.get('name', ''),
             shipping_address={
