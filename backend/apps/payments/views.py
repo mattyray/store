@@ -20,6 +20,8 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class CreateCheckoutSessionView(APIView):
     """Create a Stripe Checkout session for the current cart."""
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         cart = get_or_create_cart(request)
@@ -249,6 +251,8 @@ class StripeWebhookView(APIView):
 
 class OrderLookupView(APIView):
     """Look up order by Stripe session ID."""
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         session_id = request.query_params.get('session_id')
