@@ -93,6 +93,14 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',           # General API: 100 requests/hour per IP
+        'newsletter': '5/hour',        # Newsletter signup: 5/hour per IP
+        'contact': '10/hour',          # Contact form: 10/hour per IP
+    },
 }
 
 # Session settings for cart

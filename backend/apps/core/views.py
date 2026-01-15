@@ -8,10 +8,20 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.throttling import AnonRateThrottle
+
 from apps.orders.emails import send_contact_form_notification
 from .models import Subscriber, GiftCard
 from .emails import send_gift_card_email
 from .mailerlite import add_subscriber_to_mailerlite
+
+
+class NewsletterThrottle(AnonRateThrottle):
+    scope = 'newsletter'
+
+
+class ContactThrottle(AnonRateThrottle):
+    scope = 'contact'
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -20,6 +30,7 @@ class ContactFormView(APIView):
     """Handle contact form submissions."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [ContactThrottle]
 
     def post(self, request):
         name = request.data.get('name', '').strip()
@@ -57,6 +68,7 @@ class NewsletterSubscribeView(APIView):
     """Subscribe to newsletter."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [NewsletterThrottle]
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
