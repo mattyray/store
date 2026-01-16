@@ -17,8 +17,8 @@ ORDER NUMBER: {{ order.order_number }}
 ITEMS SHIPPED
 -------------
 {% for item in items %}
-{{ item.photo_title }}
-{{ item.variant_description }} x {{ item.quantity }}
+{{ item.item_title }}
+{{ item.item_description }} x {{ item.quantity }}
 
 {% endfor %}
 
