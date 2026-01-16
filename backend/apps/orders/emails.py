@@ -10,9 +10,25 @@ def send_order_confirmation(order):
     """Send order confirmation email to customer."""
     subject = f"Order Confirmed - {order.order_number}"
 
+    # Build items with image URLs
+    items_with_images = []
+    for item in order.items.select_related('variant__photo', 'product'):
+        item_data = {
+            'item_title': item.item_title,
+            'item_description': item.item_description,
+            'quantity': item.quantity,
+            'total_price': item.total_price,
+            'image_url': None,
+        }
+        if item.variant and item.variant.photo and item.variant.photo.image:
+            item_data['image_url'] = item.variant.photo.image.url
+        elif item.product and item.product.image:
+            item_data['image_url'] = item.product.image.url
+        items_with_images.append(item_data)
+
     context = {
         'order': order,
-        'items': order.items.all(),
+        'items': items_with_images,
         'store_name': 'Matthew Raynor Photography',
         'support_email': 'hello@matthewraynor.com',
     }
