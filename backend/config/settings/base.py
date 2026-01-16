@@ -128,7 +128,8 @@ AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = False
 AWS_S3_FILE_OVERWRITE = False
 
-# Email settings
+# Email settings (Resend)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Matt <hello@matthewraynor.com>')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'hello@matthewraynor.com')
 

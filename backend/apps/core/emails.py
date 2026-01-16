@@ -1,6 +1,9 @@
+import resend
 from django.conf import settings
-from django.core.mail import send_mail
 from django.template.loader import render_to_string
+
+# Initialize Resend with API key
+resend.api_key = settings.RESEND_API_KEY
 
 
 def send_gift_card_email(gift_card):
@@ -16,14 +19,13 @@ def send_gift_card_email(gift_card):
     html_message = render_to_string('emails/gift_card.html', context)
     plain_message = render_to_string('emails/gift_card.txt', context)
 
-    send_mail(
-        subject=subject,
-        message=plain_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[gift_card.recipient_email],
-        html_message=html_message,
-        fail_silently=False,
-    )
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [gift_card.recipient_email],
+        "subject": subject,
+        "html": html_message,
+        "text": plain_message,
+    })
 
 
 def send_gift_card_purchase_confirmation(gift_card):
@@ -38,11 +40,10 @@ def send_gift_card_purchase_confirmation(gift_card):
     html_message = render_to_string('emails/gift_card_confirmation.html', context)
     plain_message = render_to_string('emails/gift_card_confirmation.txt', context)
 
-    send_mail(
-        subject=subject,
-        message=plain_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[gift_card.purchaser_email],
-        html_message=html_message,
-        fail_silently=False,
-    )
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [gift_card.purchaser_email],
+        "subject": subject,
+        "html": html_message,
+        "text": plain_message,
+    })
