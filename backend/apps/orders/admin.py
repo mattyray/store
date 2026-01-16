@@ -109,7 +109,7 @@ class OrderAdmin(admin.ModelAdmin):
 
     @admin.action(description='Mark as shipped & send notification')
     def mark_shipped_and_notify(self, request, queryset):
-        orders = queryset.filter(status='processing')
+        orders = queryset.filter(status__in=['paid', 'processing'])
         count = 0
         for order in orders:
             order.status = 'shipped'
