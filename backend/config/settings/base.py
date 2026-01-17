@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.catalog',
     'apps.orders',
     'apps.payments',
+    'apps.mockup',
 ]
 
 MIDDLEWARE = [
@@ -139,3 +140,10 @@ MAILERLITE_API_KEY = os.getenv('MAILERLITE_API_KEY', '')
 # Store info (for emails)
 STORE_NAME = 'Matthew Raynor Photography'
 STORE_URL = os.getenv('FRONTEND_URL', 'https://store.matthewraynor.com')
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_TASK_SOFT_TIME_LIMIT = 30  # Soft timeout in seconds
+CELERY_TASK_TIME_LIMIT = 45  # Hard timeout in seconds
+CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
