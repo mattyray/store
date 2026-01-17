@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getPhoto, addToCart } from '@/lib/api';
 import type { Photo, ProductVariant } from '@/types';
 import CropOverlay from '@/components/CropOverlay';
+import { MockupTool } from '@/components/mockup';
 
 export default function PhotoDetailPage() {
   const params = useParams();
@@ -18,6 +19,7 @@ export default function PhotoDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState('');
+  const [showMockupTool, setShowMockupTool] = useState(false);
 
   useEffect(() => {
     const fetchPhoto = async () => {
@@ -196,6 +198,14 @@ export default function PhotoDetailPage() {
             {adding ? 'Adding...' : 'Add to Cart'}
           </button>
 
+          {/* See In Your Room */}
+          <button
+            onClick={() => setShowMockupTool(true)}
+            className="mt-3 w-full py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            See In Your Room
+          </button>
+
           {message && (
             <p className={`mt-3 text-sm text-center ${message.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
               {message}
@@ -219,6 +229,15 @@ export default function PhotoDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Mockup Tool Modal */}
+      {showMockupTool && (
+        <MockupTool
+          initialPhoto={photo}
+          initialVariant={selectedVariant || undefined}
+          onClose={() => setShowMockupTool(false)}
+        />
+      )}
     </div>
   );
 }
