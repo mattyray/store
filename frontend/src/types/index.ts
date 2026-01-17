@@ -115,3 +115,52 @@ export interface ApiResponse<T> {
   previous?: string | null;
   results?: T[];
 }
+
+// Wall Mockup Types
+export interface WallAnalysis {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'manual';
+  original_image: string;
+  original_width: number | null;
+  original_height: number | null;
+  depth_map: string | null;
+  wall_mask: string | null;
+  wall_bounds: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null;
+  confidence: number | null;
+  pixels_per_inch: number | null;
+  wall_height_feet: number;
+  error_message: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface SavedMockup {
+  id: string;
+  wall_analysis: string;
+  mockup_image: string;
+  config: MockupConfig;
+  share_url: string;
+  created_at: string;
+}
+
+export interface MockupConfig {
+  prints: Array<{
+    photo_id: number;
+    variant_id: number;
+    position: { x: number; y: number };
+    scale?: number;
+  }>;
+  wall_height_feet: number;
+}
+
+export interface MockupPrint {
+  id: string;
+  photo: Photo;
+  variant: ProductVariant;
+  position: { x: number; y: number };
+}

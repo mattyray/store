@@ -174,3 +174,75 @@ export async function trackOrder(email: string, orderNumber: string) {
     body: JSON.stringify({ email, order_number: orderNumber }),
   });
 }
+
+// Wall Mockup
+export async function uploadWallImage(file: File): Promise<import('@/types').WallAnalysis> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const url = `${getApiUrl()}/mockup/analyze/`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function getWallAnalysis(analysisId: string) {
+  return fetchApi<import('@/types').WallAnalysis>(`/mockup/analyze/${analysisId}/`);
+}
+
+export async function updateWallAnalysis(
+  analysisId: string,
+  data: {
+    wall_bounds?: { top: number; bottom: number; left: number; right: number };
+    wall_height_feet?: number;
+  }
+) {
+  return fetchApi<import('@/types').WallAnalysis>(`/mockup/analyze/${analysisId}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function saveMockup(data: {
+  analysis_id: string;
+  mockup_image: string;
+  config: import('@/types').MockupConfig;
+}) {
+  return fetchApi<import('@/types').SavedMockup>('/mockup/save/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getMockup(mockupId: string) {
+  return fetchApi<import('@/types').SavedMockup>(`/mockup/${mockupId}/`);
+}
+
+export async function pollWallAnalysis(
+  analysisId: string,
+  onProgress?: (status: string) => void,
+  maxAttempts = 30,
+  intervalMs = 1000
+): Promise<import('@/types').WallAnalysis> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const analysis = await getWallAnalysis(analysisId);
+    if (onProgress) onProgress(analysis.status);
+
+    if (['completed', 'failed', 'manual'].includes(analysis.status)) {
+      return analysis;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  throw new Error('Analysis timed out');
+}
