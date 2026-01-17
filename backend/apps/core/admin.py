@@ -83,12 +83,12 @@ class GiftCardAdmin(admin.ModelAdmin):
 
     def status_badge(self, obj):
         if not obj.is_active:
-            return format_html('<span style="color: #999;">Deactivated</span>')
+            return format_html('<span style="color: {};">Deactivated</span>', '#999')
         if obj.remaining_balance == 0:
-            return format_html('<span style="color: #666;">Used</span>')
+            return format_html('<span style="color: {};">Used</span>', '#666')
         if obj.remaining_balance < obj.initial_amount:
             return format_html('<span style="color: #0077B6;">Partial (${})</span>', int(obj.remaining_balance))
-        return format_html('<span style="color: #28a745;">Active</span>')
+        return format_html('<span style="color: {};">Active</span>', '#28a745')
 
     status_badge.short_description = 'Status'
 
