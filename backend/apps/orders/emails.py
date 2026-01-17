@@ -44,6 +44,51 @@ def send_order_confirmation(order):
         "text": plain_message,
     })
 
+    # Send admin notification
+    send_new_order_admin_notification(order, items_with_images)
+
+
+def send_new_order_admin_notification(order, items):
+    """Send notification to admin when new order is placed."""
+    subject = f"New Order: {order.order_number} - ${order.total}"
+
+    # Build simple text email for admin
+    items_text = "\n".join([
+        f"  - {item['item_title']} ({item['item_description']}) x{item['quantity']} = ${item['total_price']}"
+        for item in items
+    ])
+
+    addr = order.shipping_address
+    address_text = f"{addr.get('line1', '')}"
+    if addr.get('line2'):
+        address_text += f"\n  {addr.get('line2')}"
+    address_text += f"\n  {addr.get('city', '')}, {addr.get('state', '')} {addr.get('postal_code', '')}"
+
+    text_body = f"""New order received!
+
+Order: {order.order_number}
+Total: ${order.total}
+
+Customer: {order.customer_name}
+Email: {order.customer_email}
+
+Items:
+{items_text}
+
+Ship to:
+  {order.customer_name}
+  {address_text}
+
+View in admin: https://store-production-385d.up.railway.app/admin/orders/order/{order.id}/change/
+"""
+
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [settings.ADMIN_EMAIL],
+        "subject": subject,
+        "text": text_body,
+    })
+
 
 def send_shipping_notification(order, tracking_number=None, carrier=None):
     """Send shipping notification email to customer."""
