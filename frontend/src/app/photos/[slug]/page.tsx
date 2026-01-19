@@ -100,6 +100,7 @@ export default function PhotoDetailPage() {
                 src={photo.image}
                 alt={photo.title}
                 fill
+                quality={95}
                 className="object-contain"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
