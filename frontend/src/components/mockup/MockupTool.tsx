@@ -91,33 +91,48 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
     }
   }, []);
 
-  // Handle sample wall selection
+  // Handle sample wall selection - use directly without S3 upload
   const handleSampleWallSelect = useCallback(async (wallUrl: string) => {
     setIsUploading(true);
     setError(null);
 
     try {
-      // Fetch the sample wall image and convert to File
-      const response = await fetch(wallUrl);
-      const blob = await response.blob();
-      const filename = wallUrl.split('/').pop() || 'sample-wall.jpg';
-      const file = new File([blob], filename, { type: blob.type });
+      // Load image to get dimensions
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
 
-      // Upload through the normal flow
-      const result = await uploadWallImage(file);
-      setAnalysis(result);
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load sample wall image'));
+        img.src = wallUrl;
+      });
 
-      if (result.status === 'pending' || result.status === 'processing') {
-        setStep('processing');
-        // Poll for completion
-        const completed = await pollWallAnalysis(result.id, (status) => {
-          setAnalysis((prev) => (prev ? { ...prev, status: status as WallAnalysis['status'] } : null));
-        });
-        setAnalysis(completed);
-        setStep('editor');
-      } else {
-        setStep('editor');
-      }
+      // Create a mock analysis for sample walls (no S3 upload needed)
+      // Use the local URL directly - no CORS issues with same-origin images
+      const mockAnalysis: WallAnalysis = {
+        id: `sample-${Date.now()}`,
+        status: 'manual',
+        original_image: wallUrl, // Use local URL directly
+        original_width: img.width,
+        original_height: img.height,
+        wall_bounds: {
+          top: Math.round(img.height * 0.1),
+          bottom: Math.round(img.height * 0.9),
+          left: Math.round(img.width * 0.1),
+          right: Math.round(img.width * 0.9),
+        },
+        confidence: 0.8,
+        pixels_per_inch: null,
+        wall_height_feet: 8,
+        error_message: '',
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        depth_map: null,
+        wall_mask: null,
+      };
+
+      setAnalysis(mockAnalysis);
+      setStep('editor');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load sample wall');
     } finally {
@@ -131,6 +146,13 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
       setCeilingHeight(height);
 
       if (analysis) {
+        // For sample walls (local mock), just update state
+        if (analysis.id.startsWith('sample-')) {
+          setAnalysis({ ...analysis, wall_height_feet: height });
+          return;
+        }
+
+        // For uploaded walls, update via API
         try {
           const updated = await updateWallAnalysis(analysis.id, {
             wall_height_feet: height,
@@ -184,6 +206,12 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
   // Save and get share link
   const handleSave = useCallback(async () => {
     if (!canvasRef.current || !analysis) return;
+
+    // For sample walls, sharing is not supported (just use download)
+    if (analysis.id.startsWith('sample-')) {
+      setError('Sharing is not available for sample walls. Use Download instead.');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -342,13 +370,16 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
                     Download Image
                   </button>
 
-                  <button
-                    onClick={handleSave}
-                    disabled={prints.length === 0 || isSaving}
-                    className="w-full py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
-                  >
-                    {isSaving ? 'Saving...' : 'Get Shareable Link'}
-                  </button>
+                  {/* Hide share button for sample walls */}
+                  {!analysis?.id.startsWith('sample-') && (
+                    <button
+                      onClick={handleSave}
+                      disabled={prints.length === 0 || isSaving}
+                      className="w-full py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
+                    >
+                      {isSaving ? 'Saving...' : 'Get Shareable Link'}
+                    </button>
+                  )}
 
                   {shareUrl && (
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded">
