@@ -86,8 +86,8 @@ class PhotoDetailView(generics.RetrieveAPIView):
 
 
 class FeaturedPhotosView(generics.ListAPIView):
-    """List featured photos for homepage."""
-    queryset = Photo.objects.filter(is_active=True, is_featured=True).select_related('collection')
+    """List featured photos for homepage (limited to 12)."""
+    queryset = Photo.objects.filter(is_active=True, is_featured=True).select_related('collection')[:12]
     serializer_class = PhotoListSerializer
     pagination_class = None
 
