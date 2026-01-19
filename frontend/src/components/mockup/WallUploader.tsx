@@ -8,25 +8,25 @@ const SAMPLE_WALLS = [
   {
     id: 'modern-living',
     name: 'Modern Living Room',
-    image: '/sample-walls/modern-living.jpg',
+    image: '/sample-walls/modern-living.png',
     description: 'White wall with gray sofa',
   },
   {
     id: 'cozy-bedroom',
     name: 'Cozy Bedroom',
-    image: '/sample-walls/cozy-bedroom.jpg',
+    image: '/sample-walls/cozy-bedroom.png',
     description: 'Cream wall above bed',
   },
   {
     id: 'minimal-office',
     name: 'Home Office',
-    image: '/sample-walls/minimal-office.jpg',
+    image: '/sample-walls/minimal-office.png',
     description: 'Gray wall with desk',
   },
   {
     id: 'dining-room',
     name: 'Dining Room',
-    image: '/sample-walls/dining-room.jpg',
+    image: '/sample-walls/dining-room.png',
     description: 'White wall with table',
   },
 ];
