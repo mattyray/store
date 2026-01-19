@@ -76,7 +76,7 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
         setStep('processing');
         // Poll for completion
         const completed = await pollWallAnalysis(result.id, (status) => {
-          setAnalysis((prev) => (prev ? { ...prev, status } : null));
+          setAnalysis((prev) => (prev ? { ...prev, status: status as WallAnalysis['status'] } : null));
         });
         setAnalysis(completed);
         setStep('editor');
@@ -111,7 +111,7 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
         setStep('processing');
         // Poll for completion
         const completed = await pollWallAnalysis(result.id, (status) => {
-          setAnalysis((prev) => (prev ? { ...prev, status } : null));
+          setAnalysis((prev) => (prev ? { ...prev, status: status as WallAnalysis['status'] } : null));
         });
         setAnalysis(completed);
         setStep('editor');
