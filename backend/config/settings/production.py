@@ -9,8 +9,10 @@ from .base import *
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Allow Railway's health check and configured hosts
+# Set ALLOWED_HOSTS env var to: your-app.up.railway.app,store-api.matthewraynor.com
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
-ALLOWED_HOSTS.append('*')  # Temporarily allow all for debugging
+# Add Railway's internal hostname pattern for health checks
+ALLOWED_HOSTS.append('.railway.internal')
 
 # Database - PostgreSQL for production (supports DATABASE_URL from Railway)
 DATABASE_URL = os.getenv('DATABASE_URL')

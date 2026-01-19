@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import Min
+from django.db.models import Min, Prefetch
 from django_filters import rest_framework as filters
 from rest_framework import generics
 from rest_framework.filters import OrderingFilter
@@ -59,7 +59,9 @@ class CollectionListView(generics.ListAPIView):
 
 class CollectionDetailView(generics.RetrieveAPIView):
     """Get a single collection with its photos."""
-    queryset = Collection.objects.filter(is_active=True)
+    queryset = Collection.objects.filter(is_active=True).prefetch_related(
+        Prefetch('photos', queryset=Photo.objects.filter(is_active=True).select_related('collection'))
+    )
     serializer_class = CollectionDetailSerializer
     lookup_field = 'slug'
 
@@ -80,7 +82,7 @@ class PhotoListView(generics.ListAPIView):
 
 class PhotoDetailView(generics.RetrieveAPIView):
     """Get a single photo with all variants."""
-    queryset = Photo.objects.filter(is_active=True).select_related('collection')
+    queryset = Photo.objects.filter(is_active=True).select_related('collection').prefetch_related('variants')
     serializer_class = PhotoDetailSerializer
     lookup_field = 'slug'
 

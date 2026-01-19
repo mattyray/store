@@ -66,6 +66,7 @@ class CollectionListSerializer(serializers.ModelSerializer):
 
 class CollectionDetailSerializer(serializers.ModelSerializer):
     """Serializer for collection detail view with photos."""
+    # photos are prefetched in the view with is_active=True filter
     photos = PhotoListSerializer(many=True, read_only=True)
     photo_count = serializers.IntegerField(read_only=True)
 
@@ -75,15 +76,6 @@ class CollectionDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'description', 'cover_image',
             'is_limited_edition', 'photo_count', 'photos'
         ]
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['photos'] = PhotoListSerializer(
-            instance.photos.filter(is_active=True),
-            many=True,
-            context=self.context
-        ).data
-        return data
 
 
 class ProductListSerializer(serializers.ModelSerializer):
