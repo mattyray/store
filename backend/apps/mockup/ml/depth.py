@@ -21,6 +21,35 @@ MODEL_INPUT_SIZE = 256  # dpt_swin2_tiny expects 256x256
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'dpt_swin2_tiny_256.onnx')
 
 
+def download_model():
+    """
+    Download the MiDaS ONNX model if not present.
+    Returns True if model exists or was downloaded successfully.
+    """
+    if os.path.exists(MODEL_PATH):
+        return True
+
+    # Model URL from HuggingFace
+    MODEL_URL = 'https://huggingface.co/isl-org/MiDaS/resolve/main/dpt_swin2_tiny_256.onnx'
+
+    logger.info(f'Downloading MiDaS model from {MODEL_URL}...')
+
+    try:
+        import urllib.request
+
+        # Create models directory if needed
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
+        # Download with progress
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        logger.info(f'MiDaS model downloaded successfully to {MODEL_PATH}')
+        return True
+
+    except Exception as e:
+        logger.error(f'Failed to download MiDaS model: {e}')
+        return False
+
+
 def get_model():
     """
     Lazy load the MiDaS ONNX model.
@@ -34,9 +63,9 @@ def get_model():
     try:
         import onnxruntime as ort
 
-        # Check if model file exists
-        if not os.path.exists(MODEL_PATH):
-            logger.warning(f'MiDaS model not found at {MODEL_PATH}. ML features disabled.')
+        # Download model if not present
+        if not download_model():
+            logger.warning('MiDaS model not available. ML features disabled.')
             return None
 
         # Create ONNX Runtime session with optimizations

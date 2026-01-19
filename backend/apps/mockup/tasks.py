@@ -1,5 +1,11 @@
+import logging
+import os
+import tempfile
+
 from celery import shared_task
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, soft_time_limit=30, time_limit=45)
@@ -15,22 +21,35 @@ def analyze_wall_image(self, analysis_id: str):
     """
     from .models import WallAnalysis
 
+    logger.info(f'Starting wall analysis for {analysis_id}')
+
     try:
         analysis = WallAnalysis.objects.get(id=analysis_id)
     except WallAnalysis.DoesNotExist:
+        logger.error(f'Analysis {analysis_id} not found')
         return {'error': 'Analysis not found'}
 
     # Update status to processing
     analysis.status = 'processing'
     analysis.save(update_fields=['status'])
 
+    # Track temp file for cleanup
+    temp_image_path = None
+
     try:
         # Import ML modules
         from .ml.depth import run_depth_estimation
         from .ml.wall import detect_wall_plane
 
-        # Get image path
-        image_path = analysis.original_image.path
+        # Download image from S3 to temp file (required for S3 storage)
+        # .path doesn't work with S3, so we use .open() and write to temp file
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+            with analysis.original_image.open('rb') as img_file:
+                tmp.write(img_file.read())
+            temp_image_path = tmp.name
+
+        logger.info(f'Image downloaded to temp file')
+        image_path = temp_image_path
 
         # Run depth estimation
         depth_map = run_depth_estimation(image_path)
@@ -76,12 +95,15 @@ def analyze_wall_image(self, analysis_id: str):
         analysis.completed_at = timezone.now()
         analysis.save()
 
+        logger.info(f'Wall analysis completed: status={analysis.status}, confidence={analysis.confidence}')
+
         return {
             'status': analysis.status,
             'confidence': analysis.confidence,
         }
 
     except Exception as e:
+        logger.error(f'ML processing failed for {analysis_id}: {str(e)}')
         # ML processing failed
         analysis.status = 'manual'
         analysis.error_message = f'ML processing failed: {str(e)}. Please select wall manually.'
@@ -100,3 +122,11 @@ def analyze_wall_image(self, analysis_id: str):
             'status': 'manual',
             'error': str(e),
         }
+
+    finally:
+        # Clean up temp file
+        if temp_image_path and os.path.exists(temp_image_path):
+            try:
+                os.unlink(temp_image_path)
+            except Exception:
+                pass
