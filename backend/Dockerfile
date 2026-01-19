@@ -28,4 +28,9 @@ RUN mkdir -p /app/apps/mockup/ml/models && \
 RUN python manage.py collectstatic --noinput --settings=config.settings.production || true
 
 # Railway uses $PORT, default to 8000 for local
-CMD python manage.py migrate && python manage.py check && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --access-logfile - --error-logfile - --capture-output
+CMD echo "=== Starting migrations ===" && \
+    python manage.py migrate && \
+    echo "=== Migrations complete, running check ===" && \
+    python manage.py check && \
+    echo "=== Check complete, starting gunicorn ===" && \
+    gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --access-logfile - --error-logfile - --capture-output --timeout 120
