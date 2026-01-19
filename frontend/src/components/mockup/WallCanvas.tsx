@@ -54,9 +54,13 @@ export default function WallCanvas({
   // Load wall image dimensions first
   useEffect(() => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       imageDimensionsRef.current = { width: img.width, height: img.height };
       setImageLoaded(true);
+    };
+    img.onerror = (err) => {
+      console.error('Failed to load wall image for dimensions:', err);
     };
     img.src = wallImage;
   }, [wallImage]);
