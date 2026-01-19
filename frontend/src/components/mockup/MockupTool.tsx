@@ -8,6 +8,7 @@ import {
   updateWallAnalysis,
   saveMockup,
   getPhotos,
+  getPhoto,
 } from '@/lib/api';
 import WallUploader from './WallUploader';
 import WallCanvas from './WallCanvas';
@@ -42,6 +43,7 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
   const [availablePhotos, setAvailablePhotos] = useState<Photo[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(initialPhoto || null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(initialVariant || null);
+  const [isLoadingPhoto, setIsLoadingPhoto] = useState(false);
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
@@ -352,12 +354,23 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
                   photos={availablePhotos}
                   selectedPhoto={selectedPhoto}
                   selectedVariant={selectedVariant}
-                  onSelectPhoto={(photo) => {
-                    setSelectedPhoto(photo);
+                  onSelectPhoto={async (photo) => {
                     setSelectedVariant(null);
+                    setIsLoadingPhoto(true);
+                    try {
+                      // Fetch full photo data with variants
+                      const fullPhoto = await getPhoto(photo.slug);
+                      setSelectedPhoto(fullPhoto);
+                    } catch (err) {
+                      console.error('Failed to load photo details:', err);
+                      setSelectedPhoto(photo);
+                    } finally {
+                      setIsLoadingPhoto(false);
+                    }
                   }}
                   onSelectVariant={setSelectedVariant}
                   onAddPrint={handleAddPrint}
+                  disabled={isLoadingPhoto}
                 />
 
                 {/* Actions */}
