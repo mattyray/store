@@ -78,7 +78,7 @@ class UploadWallImageView(APIView):
             analysis.save()
 
         return Response(
-            WallAnalysisSerializer(analysis).data,
+            WallAnalysisSerializer(analysis, context={'request': request}).data,
             status=status.HTTP_201_CREATED
         )
 
@@ -99,7 +99,7 @@ class WallAnalysisDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return Response(WallAnalysisSerializer(analysis).data)
+        return Response(WallAnalysisSerializer(analysis, context={'request': request}).data)
 
     def patch(self, request, analysis_id):
         """Update analysis (manual bounds, height adjustment)."""
@@ -119,7 +119,7 @@ class WallAnalysisDetailView(APIView):
 
         if serializer.is_valid():
             serializer.save()
-            return Response(WallAnalysisSerializer(analysis).data)
+            return Response(WallAnalysisSerializer(analysis, context={'request': request}).data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -178,7 +178,7 @@ class SaveMockupView(APIView):
         )
 
         return Response(
-            SavedMockupSerializer(mockup).data,
+            SavedMockupSerializer(mockup, context={'request': request}).data,
             status=status.HTTP_201_CREATED
         )
 
@@ -197,4 +197,4 @@ class MockupDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return Response(SavedMockupSerializer(mockup).data)
+        return Response(SavedMockupSerializer(mockup, context={'request': request}).data)

@@ -91,6 +91,40 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
     }
   }, []);
 
+  // Handle sample wall selection
+  const handleSampleWallSelect = useCallback(async (wallUrl: string) => {
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      // Fetch the sample wall image and convert to File
+      const response = await fetch(wallUrl);
+      const blob = await response.blob();
+      const filename = wallUrl.split('/').pop() || 'sample-wall.jpg';
+      const file = new File([blob], filename, { type: blob.type });
+
+      // Upload through the normal flow
+      const result = await uploadWallImage(file);
+      setAnalysis(result);
+
+      if (result.status === 'pending' || result.status === 'processing') {
+        setStep('processing');
+        // Poll for completion
+        const completed = await pollWallAnalysis(result.id, (status) => {
+          setAnalysis((prev) => (prev ? { ...prev, status } : null));
+        });
+        setAnalysis(completed);
+        setStep('editor');
+      } else {
+        setStep('editor');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sample wall');
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
   // Handle ceiling height change
   const handleCeilingHeightChange = useCallback(
     async (height: number) => {
@@ -214,8 +248,12 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
 
           {/* Upload Step */}
           {step === 'upload' && (
-            <div className="max-w-md mx-auto">
-              <WallUploader onUpload={handleUpload} isUploading={isUploading} />
+            <div className="max-w-lg mx-auto">
+              <WallUploader
+                onUpload={handleUpload}
+                onSelectSampleWall={handleSampleWallSelect}
+                isUploading={isUploading}
+              />
             </div>
           )}
 

@@ -1,9 +1,9 @@
 """
 MiDaS Depth Estimation using ONNX Runtime.
 
-Uses MiDaS v3.1 Small (DPT-BEiT-S) for fast CPU inference.
-Model size: ~27MB
-Inference time: 2-4 seconds on CPU
+Uses MiDaS v3.1 dpt_swin2_tiny_256 for fast CPU inference.
+Model size: ~165MB
+Inference time: 1-3 seconds on CPU
 """
 import os
 import logging
@@ -17,8 +17,8 @@ _model_session = None
 _model_transform = None
 
 # Model configuration
-MODEL_INPUT_SIZE = 384  # MiDaS Small expects 384x384
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'dpt_beit_s_384.onnx')
+MODEL_INPUT_SIZE = 256  # dpt_swin2_tiny expects 256x256
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'dpt_swin2_tiny_256.onnx')
 
 
 def get_model():

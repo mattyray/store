@@ -72,13 +72,13 @@ def detect_wall_plane(
         z = points_z[sample_indices]
 
         # RANSAC plane fitting: z = ax + by + c
-        # Residual threshold based on depth std deviation
-        threshold = np.std(z) * 0.15
+        # Use a more lenient threshold to capture more of the wall
+        threshold = np.std(z) * 0.5  # Increased from 0.15
 
         ransac = RANSACRegressor(
-            min_samples=0.3,
+            min_samples=0.1,  # Reduced from 0.3
             residual_threshold=threshold,
-            max_trials=100,
+            max_trials=200,  # Increased from 100
             random_state=42,
         )
         ransac.fit(X, z)

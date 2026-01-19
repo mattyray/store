@@ -3,35 +3,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Photo, ProductVariant, WallAnalysis } from '@/types';
 
-// Fabric.js types (will be imported dynamically)
-type FabricCanvas = {
-  dispose: () => void;
-  setBackgroundImage: (img: FabricImage, callback: () => void, options?: object) => void;
-  renderAll: () => void;
-  add: (obj: FabricObject) => void;
-  remove: (obj: FabricObject) => void;
-  setActiveObject: (obj: FabricObject) => void;
-  toDataURL: (options?: { format?: string; quality?: number; multiplier?: number }) => string;
-  getObjects: () => FabricObject[];
-  getActiveObject: () => FabricObject | null;
-  on: (event: string, handler: () => void) => void;
-  setWidth: (width: number) => void;
-  setHeight: (height: number) => void;
-};
-
-type FabricImage = FabricObject & {
-  scaleToWidth: (width: number) => void;
-  width?: number;
-  height?: number;
-};
-
-type FabricObject = {
-  set: (options: object) => void;
-  data?: { printId?: string };
-};
-
-type FabricShadow = object;
-
 interface MockupPrintData {
   id: string;
   photo: Photo;
@@ -49,6 +20,9 @@ interface WallCanvasProps {
   canvasRef?: React.RefObject<{ toDataURL: () => string } | null>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FabricType = any;
+
 export default function WallCanvas({
   wallImage,
   wallBounds,
@@ -60,59 +34,84 @@ export default function WallCanvas({
 }: WallCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasElementRef = useRef<HTMLCanvasElement>(null);
-  const fabricRef = useRef<FabricCanvas | null>(null);
-  const printObjectsRef = useRef<Map<string, FabricImage>>(new Map());
+  const fabricRef = useRef<FabricType>(null);
+  const fabricModuleRef = useRef<FabricType>(null);
+  const printObjectsRef = useRef<Map<string, FabricType>>(new Map());
   const [fabricLoaded, setFabricLoaded] = useState(false);
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
+  const imageDimensionsRef = useRef({ width: 0, height: 0 });
 
   // Load Fabric.js dynamically
   useEffect(() => {
-    import('fabric').then((fabricModule) => {
-      (window as unknown as { fabric: typeof fabricModule.fabric }).fabric = fabricModule.fabric;
+    import('fabric').then((mod) => {
+      fabricModuleRef.current = mod;
       setFabricLoaded(true);
     });
   }, []);
 
-  // Calculate canvas size based on container
+  // Load wall image dimensions first
   useEffect(() => {
-    if (!containerRef.current) return;
+    const img = new Image();
+    img.onload = () => {
+      imageDimensionsRef.current = { width: img.width, height: img.height };
+      setImageLoaded(true);
+    };
+    img.src = wallImage;
+  }, [wallImage]);
+
+  // Calculate canvas size based on container and image
+  useEffect(() => {
+    if (!containerRef.current || !imageLoaded) return;
 
     const updateSize = () => {
       const container = containerRef.current;
       if (!container) return;
 
+      const { width: imgWidth, height: imgHeight } = imageDimensionsRef.current;
+      if (!imgWidth || !imgHeight) return;
+
       const containerWidth = container.clientWidth;
       const maxHeight = window.innerHeight * 0.6;
+      const imageAspect = imgWidth / imgHeight;
 
-      // Load the wall image to get its dimensions
-      const img = new Image();
-      img.onload = () => {
-        const imageAspect = img.width / img.height;
-        let width = containerWidth;
-        let height = width / imageAspect;
+      let width: number;
+      let height: number;
 
+      // For portrait images (taller than wide), fit to height first
+      if (imageAspect < 1) {
+        height = Math.min(maxHeight, 500);
+        width = height * imageAspect;
+        // Ensure width doesn't exceed container
+        if (width > containerWidth) {
+          width = containerWidth;
+          height = width / imageAspect;
+        }
+      } else {
+        // Landscape images - fit to width first
+        width = Math.min(containerWidth, 600);
+        height = width / imageAspect;
         if (height > maxHeight) {
           height = maxHeight;
           width = height * imageAspect;
         }
+      }
 
-        setCanvasSize({ width, height });
-        setScale(width / img.width);
-      };
-      img.src = wallImage;
+      setCanvasSize({ width: Math.round(width), height: Math.round(height) });
+      setScale(width / imgWidth);
     };
 
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, [wallImage]);
+  }, [wallImage, imageLoaded]);
 
   // Initialize Fabric.js canvas
   useEffect(() => {
-    if (!fabricLoaded || !canvasElementRef.current) return;
+    if (!fabricLoaded || !canvasElementRef.current || !fabricModuleRef.current || !canvasSize.width || !canvasSize.height) return;
 
-    const fabric = (window as unknown as { fabric: { Canvas: new (el: HTMLCanvasElement, options?: object) => FabricCanvas; Image: { fromURL: (url: string, callback: (img: FabricImage) => void, options?: object) => void }; Shadow: new (options: object) => FabricShadow } }).fabric;
+    const fabric = fabricModuleRef.current;
 
     // Dispose existing canvas
     if (fabricRef.current) {
@@ -123,33 +122,37 @@ export default function WallCanvas({
     const canvas = new fabric.Canvas(canvasElementRef.current, {
       selection: true,
       preserveObjectStacking: true,
+      width: canvasSize.width,
+      height: canvasSize.height,
     });
     fabricRef.current = canvas;
 
-    // Set canvas size
-    canvas.setWidth(canvasSize.width);
-    canvas.setHeight(canvasSize.height);
-
     // Load wall image as background
-    fabric.Image.fromURL(
-      wallImage,
-      (img: FabricImage) => {
-        canvas.setBackgroundImage(img, () => canvas.renderAll(), {
-          scaleX: canvasSize.width / (img.width || 1),
-          scaleY: canvasSize.height / (img.height || 1),
-        });
-      },
-      { crossOrigin: 'anonymous' }
-    );
+    fabric.FabricImage.fromURL(wallImage, { crossOrigin: 'anonymous' }).then((img: FabricType) => {
+      // Scale image to fit canvas
+      const scaleX = canvasSize.width / img.width;
+      const scaleY = canvasSize.height / img.height;
+      img.set({
+        scaleX: scaleX,
+        scaleY: scaleY,
+        originX: 'left',
+        originY: 'top',
+        left: 0,
+        top: 0,
+      });
+      canvas.backgroundImage = img;
+      canvas.renderAll();
+    }).catch((err: Error) => {
+      console.error('Failed to load wall image:', err);
+    });
 
     // Handle object movement
-    canvas.on('object:moved', () => {
+    canvas.on('object:modified', () => {
       const activeObj = canvas.getActiveObject();
-      if (activeObj && activeObj.data?.printId && onPrintMove) {
-        const obj = activeObj as unknown as { left: number; top: number };
-        onPrintMove(activeObj.data.printId, {
-          x: obj.left / scale,
-          y: obj.top / scale,
+      if (activeObj && activeObj.printId && onPrintMove) {
+        onPrintMove(activeObj.printId, {
+          x: activeObj.left / scale,
+          y: activeObj.top / scale,
         });
       }
     });
@@ -161,9 +164,9 @@ export default function WallCanvas({
 
   // Add/update prints on canvas
   useEffect(() => {
-    if (!fabricRef.current || !fabricLoaded) return;
+    if (!fabricRef.current || !fabricLoaded || !fabricModuleRef.current) return;
 
-    const fabric = (window as unknown as { fabric: { Canvas: new (el: HTMLCanvasElement, options?: object) => FabricCanvas; Image: { fromURL: (url: string, callback: (img: FabricImage) => void, options?: object) => void }; Shadow: new (options: object) => FabricShadow } }).fabric;
+    const fabric = fabricModuleRef.current;
     const canvas = fabricRef.current;
 
     // Track which prints we've seen
@@ -205,36 +208,35 @@ export default function WallCanvas({
       const posX = print.position.x ? print.position.x * scale : defaultX;
       const posY = print.position.y ? print.position.y * scale : defaultY;
 
-      fabric.Image.fromURL(
-        print.photo.image,
-        (img: FabricImage) => {
-          img.scaleToWidth(printWidthPx);
-          img.set({
-            left: posX,
-            top: posY,
-            hasControls: true,
-            hasBorders: true,
-            lockRotation: true,
-            lockScalingFlip: true,
-            cornerColor: '#3b82f6',
-            cornerStyle: 'circle',
-            borderColor: '#3b82f6',
-            data: { printId: print.id },
-            shadow: new fabric.Shadow({
-              color: 'rgba(0,0,0,0.4)',
-              blur: 20,
-              offsetX: 8,
-              offsetY: 8,
-            }),
-          });
+      fabric.FabricImage.fromURL(print.photo.image, { crossOrigin: 'anonymous' }).then((img: FabricType) => {
+        const scaleToFit = printWidthPx / img.width;
+        img.scaleX = scaleToFit;
+        img.scaleY = scaleToFit * (printHeightPx / (img.height * scaleToFit));
+        img.set({
+          left: posX,
+          top: posY,
+          hasControls: true,
+          hasBorders: true,
+          lockRotation: true,
+          cornerColor: '#3b82f6',
+          cornerStyle: 'circle',
+          borderColor: '#3b82f6',
+          shadow: new fabric.Shadow({
+            color: 'rgba(0,0,0,0.4)',
+            blur: 20,
+            offsetX: 8,
+            offsetY: 8,
+          }),
+        });
 
-          canvas.add(img);
-          canvas.setActiveObject(img);
-          canvas.renderAll();
-          printObjectsRef.current.set(print.id, img);
-        },
-        { crossOrigin: 'anonymous' }
-      );
+        // Store custom data on the object
+        img.printId = print.id;
+
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        canvas.renderAll();
+        printObjectsRef.current.set(print.id, img);
+      });
     });
   }, [prints, fabricLoaded, pixelsPerInch, scale, canvasSize, wallBounds]);
 
@@ -250,8 +252,8 @@ export default function WallCanvas({
 
   // Set ref for parent access
   useEffect(() => {
-    if (canvasRef) {
-      (canvasRef as React.MutableRefObject<{ toDataURL: () => string } | null>).current = {
+    if (canvasRef && 'current' in canvasRef) {
+      (canvasRef as { current: { toDataURL: () => string } | null }).current = {
         toDataURL: getDataURL,
       };
     }
@@ -261,14 +263,20 @@ export default function WallCanvas({
   const handleRemoveSelected = useCallback(() => {
     if (!fabricRef.current) return;
     const activeObj = fabricRef.current.getActiveObject();
-    if (activeObj && activeObj.data?.printId) {
-      onPrintRemove?.(activeObj.data.printId);
+    if (activeObj && activeObj.printId) {
+      onPrintRemove?.(activeObj.printId);
     }
   }, [onPrintRemove]);
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <canvas ref={canvasElementRef} className="border border-gray-200 dark:border-gray-700 rounded" />
+    <div ref={containerRef} className="relative w-full flex justify-center">
+      {canvasSize.width > 0 && canvasSize.height > 0 ? (
+        <canvas ref={canvasElementRef} className="border border-gray-200 dark:border-gray-700 rounded" />
+      ) : (
+        <div className="w-full h-64 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded">
+          <span className="text-gray-500">Loading wall image...</span>
+        </div>
+      )}
 
       {/* Remove button */}
       <button
@@ -282,9 +290,11 @@ export default function WallCanvas({
       </button>
 
       {/* Instructions */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-        Drag prints to reposition. Use corners to resize.
-      </p>
+      {canvasSize.width > 0 && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+          Drag prints to reposition. Use corners to resize.
+        </p>
+      )}
     </div>
   );
 }
