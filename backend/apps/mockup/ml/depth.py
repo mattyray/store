@@ -90,12 +90,13 @@ def get_model():
         return None
 
 
-def preprocess_image(image_path: str) -> tuple:
+def preprocess_image(image_path: str, max_size: int = 1280) -> tuple:
     """
     Preprocess image for MiDaS inference.
 
     Args:
         image_path: Path to the input image
+        max_size: Maximum dimension to resize to before processing (saves memory)
 
     Returns:
         Tuple of (preprocessed array, original size)
@@ -103,6 +104,13 @@ def preprocess_image(image_path: str) -> tuple:
     # Load image
     img = Image.open(image_path).convert('RGB')
     original_size = img.size  # (width, height)
+
+    # Resize large images to save memory (OOM prevention)
+    if max(original_size) > max_size:
+        ratio = max_size / max(original_size)
+        new_size = (int(original_size[0] * ratio), int(original_size[1] * ratio))
+        img = img.resize(new_size, Image.Resampling.BILINEAR)
+        logger.info(f'Resized image from {original_size} to {new_size} for processing')
 
     # Resize to model input size
     img_resized = img.resize((MODEL_INPUT_SIZE, MODEL_INPUT_SIZE), Image.Resampling.BILINEAR)
