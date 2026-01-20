@@ -1,3 +1,4 @@
-# Celery app - only import for worker processes to avoid blocking web startup
-# The web server doesn't need the Celery app loaded at startup
-__all__ = ()
+# Import Celery app so Django loads it and uses correct broker settings
+from .celery import app as celery_app
+
+__all__ = ('celery_app',)
