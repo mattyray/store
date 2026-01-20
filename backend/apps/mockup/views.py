@@ -1,4 +1,5 @@
 import base64
+import logging
 import uuid
 from io import BytesIO
 
@@ -8,6 +9,8 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+logger = logging.getLogger(__name__)
 
 from .models import WallAnalysis, SavedMockup
 from .serializers import (
@@ -62,11 +65,14 @@ class UploadWallImageView(APIView):
         # Queue Celery task for ML processing
         try:
             from .tasks import analyze_wall_image
+            logger.info(f'Queuing wall analysis task for {analysis.id}')
             analyze_wall_image.delay(str(analysis.id))
+            logger.info(f'Task queued successfully for {analysis.id}')
         except Exception as e:
             # If Celery isn't available, fall back to manual mode
+            logger.error(f'Failed to queue Celery task: {type(e).__name__}: {e}')
             analysis.status = 'manual'
-            analysis.error_message = 'ML processing not available. Please select wall manually.'
+            analysis.error_message = f'ML processing not available: {type(e).__name__}. Please select wall manually.'
             # Set default bounds (full image)
             if analysis.original_width and analysis.original_height:
                 analysis.wall_bounds = {
