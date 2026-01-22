@@ -68,6 +68,32 @@ class Photo(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # AI-generated fields for chat agent semantic search
+    ai_description = models.TextField(
+        blank=True,
+        help_text='AI-generated rich description of the photograph'
+    )
+    ai_colors = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='AI-detected dominant colors (e.g., ["blue", "gold", "white"])'
+    )
+    ai_mood = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='AI-detected mood/feeling keywords (e.g., ["calm", "dramatic"])'
+    )
+    ai_subjects = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='AI-detected subjects (e.g., ["lighthouse", "ocean", "sunset"])'
+    )
+    ai_room_suggestions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='AI-suggested room types (e.g., ["bedroom", "office", "living room"])'
+    )
+
     class Meta:
         ordering = ['-created_at']
 
