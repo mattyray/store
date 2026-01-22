@@ -90,7 +90,7 @@ def get_model():
         return None
 
 
-def preprocess_image(image_path: str, max_size: int = 1280) -> tuple:
+def preprocess_image(image_path: str, max_size: int = 800) -> tuple:
     """
     Preprocess image for MiDaS inference.
 
