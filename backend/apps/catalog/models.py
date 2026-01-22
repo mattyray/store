@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from pgvector.django import VectorField
 
 
 class Collection(models.Model):
@@ -92,6 +93,14 @@ class Photo(models.Model):
         default=list,
         blank=True,
         help_text='AI-suggested room types (e.g., ["bedroom", "office", "living room"])'
+    )
+
+    # Vector embedding for semantic search (1536 dimensions for OpenAI embeddings)
+    embedding = VectorField(
+        dimensions=1536,
+        null=True,
+        blank=True,
+        help_text='Vector embedding for semantic similarity search'
     )
 
     class Meta:
