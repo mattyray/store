@@ -15,6 +15,15 @@ import WallCanvas from './WallCanvas';
 import CeilingSlider from './CeilingSlider';
 import PrintSelector from './PrintSelector';
 
+// Processing stage messages
+const PROCESSING_STAGES = [
+  { time: 0, message: 'Uploading your image...' },
+  { time: 10, message: 'Detecting walls and surfaces...' },
+  { time: 25, message: 'Analyzing room dimensions...' },
+  { time: 40, message: 'Calculating optimal placement...' },
+  { time: 55, message: 'Almost there...' },
+];
+
 interface MockupPrint {
   id: string;
   photo: Photo;
@@ -36,6 +45,8 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
   const [isUploading, setIsUploading] = useState(false);
   const [analysis, setAnalysis] = useState<WallAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [processingMessage, setProcessingMessage] = useState(PROCESSING_STAGES[0].message);
 
   // Editor state
   const [ceilingHeight, setCeilingHeight] = useState(8);
@@ -65,10 +76,31 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
       .catch(console.error);
   }, [initialPhoto]);
 
+  // Update processing message based on elapsed time
+  useEffect(() => {
+    if (step !== 'processing' || !processingStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - processingStartTime) / 1000;
+
+      // Find the appropriate message for current elapsed time
+      for (let i = PROCESSING_STAGES.length - 1; i >= 0; i--) {
+        if (elapsed >= PROCESSING_STAGES[i].time) {
+          setProcessingMessage(PROCESSING_STAGES[i].message);
+          break;
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [step, processingStartTime]);
+
   // Handle wall image upload
   const handleUpload = useCallback(async (file: File) => {
     setIsUploading(true);
     setError(null);
+    setProcessingStartTime(Date.now());
+    setProcessingMessage(PROCESSING_STAGES[0].message);
 
     try {
       const result = await uploadWallImage(file);
@@ -90,6 +122,7 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setIsUploading(false);
+      setProcessingStartTime(null);
     }
   }, []);
 
@@ -290,15 +323,13 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
           {/* Processing Step */}
           {step === 'processing' && (
             <div className="text-center py-12">
-              <div className="w-12 h-12 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">
-                Analyzing your wall...
+              <div className="w-14 h-14 border-2 border-gray-200 dark:border-gray-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-6" />
+              <p className="text-lg text-gray-700 dark:text-gray-300 mb-2">
+                {processingMessage}
               </p>
-              {analysis?.status && (
-                <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                  Status: {analysis.status}
-                </p>
-              )}
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                This typically takes about a minute
+              </p>
             </div>
           )}
 
