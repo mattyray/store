@@ -149,3 +149,7 @@ CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_TASK_SOFT_TIME_LIMIT = 30  # Soft timeout in seconds
 CELERY_TASK_TIME_LIMIT = 45  # Hard timeout in seconds
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
+
+# AI Chat Agent
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')  # For embeddings
