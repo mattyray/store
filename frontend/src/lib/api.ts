@@ -246,3 +246,106 @@ export async function pollWallAnalysis(
 
   throw new Error('Analysis timed out');
 }
+
+// Chat API
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  image_url?: string;
+  tool_calls?: Array<{ id: string; name: string; args: Record<string, unknown> }>;
+}
+
+export interface ChatChunk {
+  type: 'conversation_id' | 'text' | 'tool_use' | 'tool_result' | 'error' | 'done';
+  id?: string;
+  content?: string;
+  tool?: string;
+  args?: Record<string, unknown>;
+  result?: unknown;
+  message?: string;
+}
+
+export async function* streamChat(
+  message: string,
+  conversationId?: string,
+  imageUrl?: string,
+  cartId?: string
+): AsyncGenerator<ChatChunk> {
+  const url = `${getApiUrl()}/chat/`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      message,
+      conversation_id: conversationId,
+      image_url: imageUrl,
+      cart_id: cartId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Chat request failed' }));
+    yield { type: 'error', message: error.error || `HTTP ${response.status}` };
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    yield { type: 'error', message: 'No response body' };
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE messages
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          yield data as ChatChunk;
+        } catch {
+          // Skip malformed JSON
+        }
+      }
+    }
+  }
+}
+
+export async function getChatHistory(conversationId: string) {
+  return fetchApi<{
+    conversation_id: string;
+    messages: ChatMessage[];
+    created_at: string;
+  }>(`/chat/history/${conversationId}/`);
+}
+
+export async function uploadChatImage(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const url = `${getApiUrl()}/chat/upload-image/`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
