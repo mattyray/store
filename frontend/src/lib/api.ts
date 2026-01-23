@@ -330,10 +330,9 @@ export async function* streamChat(
       if (line.startsWith('data: ')) {
         try {
           const data = JSON.parse(line.slice(6));
-          console.log('[API] SSE chunk:', data.type);
           yield data as ChatChunk;
-        } catch (e) {
-          console.error('[API] Parse error:', line.slice(0, 100), e);
+        } catch {
+          // Skip malformed JSON
         }
       }
     }

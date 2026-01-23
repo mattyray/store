@@ -110,14 +110,12 @@ def run_agent(
 
     # Build message history
     history = build_message_history(conversation)
-    print(f"[CHAT DEBUG] History length: {len(history)}, user_message: {user_message[:50]}")
 
     # Build the prompt
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         *history[:-1],  # Exclude the just-added user message since we'll add it fresh
     ]
-    print(f"[CHAT DEBUG] Messages to LLM: {len(messages)} (system + {len(history)-1} history)")
 
     # Add user message with optional image (only HTTPS URLs - Claude API requirement)
     if image_url and image_url.startswith('https://'):
@@ -174,7 +172,6 @@ def run_agent(
                         tool_call_chunks[idx]['args'] += tc_chunk['args']
 
         # Convert accumulated chunks to tool calls
-        print(f"[CHAT DEBUG] tool_call_chunks: {tool_call_chunks}")
         for idx in sorted(tool_call_chunks.keys()):
             tc = tool_call_chunks[idx]
             if tc['name']:  # Only include if we have a tool name
@@ -189,7 +186,6 @@ def run_agent(
                     'name': tc['name'],
                     'args': args,
                 })
-        print(f"[CHAT DEBUG] Parsed tool_calls: {tool_calls}")
 
         # Save assistant message
         assistant_msg = Message.objects.create(

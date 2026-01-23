@@ -183,7 +183,7 @@ export default function ChatWindow({
           imageUrl,
           cartId
         )) {
-          console.log('[CHAT] Received chunk:', chunk.type, chunk);
+          // Process streaming chunks
           switch (chunk.type) {
             case 'conversation_id':
               if (chunk.id && !currentConversationId) {
@@ -195,7 +195,6 @@ export default function ChatWindow({
             case 'text':
               if (chunk.content) {
                 accumulatedContent += chunk.content;
-                console.log('[CHAT] Text accumulated:', accumulatedContent.length, 'chars');
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMessageId
