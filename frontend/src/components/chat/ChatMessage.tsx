@@ -6,7 +6,9 @@ import Link from 'next/link';
 interface Photo {
   slug: string;
   title: string;
-  image_url: string;
+  image_url?: string;
+  thumbnail_url?: string;
+  url?: string;
   price_range?: { min: number; max: number };
 }
 

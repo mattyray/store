@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
+    // Allow Docker internal network images in development
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    // Disable private IP blocking for local Docker development
+    unoptimized: process.env.NODE_ENV === 'development',
     // Enable optimization - serves WebP/AVIF at appropriate sizes
     // Original quality preserved, just smarter delivery
     formats: ['image/avif', 'image/webp'],
@@ -21,6 +26,11 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: 'localhost',
+      },
+      {
+        protocol: 'http',
+        hostname: 'backend',
+        port: '7974',
       },
     ],
   },

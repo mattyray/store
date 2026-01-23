@@ -92,6 +92,8 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                     'max': float(price_range['max']) if price_range else None,
                 } if price_range else None,
                 'image_url': photo.image.url if photo.image else None,
+                'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+                'url': f'/photos/{photo.slug}',
             })
 
         return results
@@ -157,6 +159,8 @@ def search_photos_filter(
                     'max': float(price_range['max']) if price_range else None,
                 } if price_range else None,
                 'image_url': photo.image.url if photo.image else None,
+                'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+                'url': f'/photos/{photo.slug}',
             })
 
         return results
@@ -206,6 +210,8 @@ def get_photo_details(photo_slug: str) -> dict:
             'room_suggestions': photo.ai_room_suggestions,
             'collection': photo.collection.name if photo.collection else None,
             'image_url': photo.image.url if photo.image else None,
+            'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+            'url': f'/photos/{photo.slug}',
             'variants': variants,
         }
 

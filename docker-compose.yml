@@ -4,7 +4,7 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -43,6 +43,8 @@ services:
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-us-east-1}
       - MAILERLITE_API_KEY=${MAILERLITE_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - FRONTEND_URL=http://localhost:3000
       - REDIS_URL=redis://redis:6379/0
     depends_on:
