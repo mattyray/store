@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { streamChat, uploadChatImage, type ChatChunk } from '@/lib/api';
+import { streamChat, uploadChatImage, getChatHistory, type ChatChunk } from '@/lib/api';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -44,9 +44,36 @@ export default function ChatWindow({
   const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load chat history when conversation ID exists
+  useEffect(() => {
+    if (conversationId && !historyLoaded) {
+      setHistoryLoaded(true);
+      getChatHistory(conversationId)
+        .then((data) => {
+          if (data.messages && data.messages.length > 0) {
+            const loadedMessages: Message[] = data.messages
+              .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+              .map((msg) => ({
+                id: `history-${msg.id}`,
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+                imageUrl: msg.image_url || undefined,
+              }));
+            // Prepend welcome message and add loaded messages
+            setMessages([welcomeMessage, ...loadedMessages]);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load chat history:', err);
+          // If loading history fails, start fresh
+        });
+    }
+  }, [conversationId, historyLoaded]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -200,6 +227,7 @@ export default function ChatWindow({
 
   const handleNewConversation = useCallback(() => {
     setMessages([welcomeMessage]);
+    setHistoryLoaded(false);
     onConversationIdChange('');
     localStorage.removeItem('chat_conversation_id');
   }, [onConversationIdChange]);

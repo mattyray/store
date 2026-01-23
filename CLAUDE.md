@@ -313,7 +313,7 @@ Defined in `ProductVariant.DEFAULT_PRICING` - used by bulk create actions.
 ## Current Status
 
 ### Completed
-- Stripe checkout integration (currently in sandbox/test mode)
+- Stripe checkout integration
 - Gift card purchase system
 - Newsletter subscription (MailerLite)
 - Contact form with honeypot spam protection
@@ -324,7 +324,6 @@ Defined in `ProductVariant.DEFAULT_PRICING` - used by bulk create actions.
 - Order confirmation emails
 
 ### Pre-Launch TODO
-- [ ] Switch Stripe from sandbox to live mode
 - [ ] Configure sales tax (TaxJar/Avalara or manual NY collection)
 - [ ] Final content review
 - [ ] DNS/domain verification

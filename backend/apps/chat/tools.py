@@ -468,16 +468,16 @@ def update_cart_item(item_id: int, quantity: int, cart_id: str = None) -> dict:
 @tool
 def start_checkout(cart_id: str = None) -> dict:
     """
-    Start the checkout process and get a Stripe checkout URL.
+    Help the customer proceed to checkout.
 
-    Use this when the customer is ready to purchase. Returns a URL
-    they can click to complete payment.
+    Use this when the customer is ready to purchase. Directs them to the cart
+    page where they can click "Proceed to Checkout" to complete payment.
 
     Args:
         cart_id: Cart ID (will be provided by context)
 
     Returns:
-        Checkout URL or error
+        Cart URL and instructions
     """
     try:
         if not cart_id:
@@ -488,14 +488,22 @@ def start_checkout(cart_id: str = None) -> dict:
         if cart.total_items == 0:
             return {'error': 'Cart is empty'}
 
-        # Return the checkout URL - frontend will handle Stripe session creation
-        checkout_url = f"{settings.FRONTEND_URL}/checkout?cart={cart_id}"
+        # Get cart items for summary
+        items = []
+        for item in cart.items.all():
+            if item.variant:
+                items.append(f"{item.variant.photo.title} ({item.variant.display_name})")
+            elif item.product:
+                items.append(item.product.title)
 
         return {
             'success': True,
-            'checkout_url': checkout_url,
+            'cart_url': f"{settings.FRONTEND_URL}/cart",
             'cart_total': float(cart.subtotal),
-            'message': 'Ready for checkout! Click the link to complete your purchase.',
+            'item_count': cart.total_items,
+            'items': items,
+            'free_shipping': cart.subtotal >= 500,
+            'message': 'Your cart is ready! Click the cart link or use the "Proceed to Checkout" button on the cart page to complete your purchase with Stripe.',
         }
 
     except Cart.DoesNotExist:
