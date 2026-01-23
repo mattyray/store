@@ -249,6 +249,7 @@ export async function pollWallAnalysis(
 
 // Chat API
 export interface ChatMessage {
+  id?: number;
   role: 'user' | 'assistant' | 'tool';
   content: string;
   image_url?: string;
