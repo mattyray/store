@@ -25,8 +25,31 @@ interface ChatMessageProps {
   message: Message;
 }
 
+// Parse JSON block from message content to extract photos
+function parsePhotosFromContent(content: string): { cleanContent: string; photos: Photo[] } {
+  const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"photos"[\s\S]*?\})\s*```/);
+  if (jsonMatch) {
+    try {
+      const data = JSON.parse(jsonMatch[1]);
+      if (data.photos && Array.isArray(data.photos)) {
+        return {
+          cleanContent: content.replace(jsonMatch[0], '').trim(),
+          photos: data.photos,
+        };
+      }
+    } catch {
+      // Invalid JSON, ignore
+    }
+  }
+  return { cleanContent: content, photos: [] };
+}
+
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
+
+  // Parse photos from content JSON block if present
+  const { cleanContent, photos: parsedPhotos } = parsePhotosFromContent(message.content);
+  const allPhotos = [...(message.photos || []), ...parsedPhotos];
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
