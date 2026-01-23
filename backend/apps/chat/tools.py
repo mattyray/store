@@ -66,27 +66,40 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
         List of matching photos with details
     """
     try:
-        # Generate embedding for the query
-        query_embedding = generate_query_embedding(query)
+        photos = None
 
-        # Use pgvector to find similar photos
-        # Note: This requires the embedding field to be populated
-        photos = Photo.objects.filter(
-            is_active=True,
-            embedding__isnull=False
-        ).order_by(
-            # Cosine distance - lower is more similar
-            # pgvector uses <=> operator for cosine distance
-        )[:limit * 2]  # Get more, then filter
-
-        # For now, fall back to text-based search if embeddings aren't ready
-        if not photos.exists():
+        # Try vector search first if OpenAI is configured
+        try:
+            query_embedding = generate_query_embedding(query)
+            # Use pgvector to find similar photos if embeddings exist
             photos = Photo.objects.filter(
-                Q(ai_description__icontains=query) |
-                Q(title__icontains=query) |
-                Q(ai_mood__icontains=query) |
-                Q(ai_subjects__icontains=query)
-            ).filter(is_active=True)[:limit]
+                is_active=True,
+                embedding__isnull=False
+            ).order_by(
+                # Cosine distance - lower is more similar
+            )[:limit * 2]
+        except Exception:
+            # OpenAI unavailable or quota exceeded - fall back to text search
+            pass
+
+        # Fall back to text-based search
+        if not photos or not photos.exists():
+            # Split query into words and match any word in any field
+            words = query.split()
+            q_objects = Q()
+            for word in words:
+                if len(word) >= 3:  # Skip very short words
+                    q_objects |= (
+                        Q(ai_description__icontains=word) |
+                        Q(title__icontains=word) |
+                        Q(ai_mood__icontains=word) |
+                        Q(ai_subjects__icontains=word) |
+                        Q(description__icontains=word)
+                    )
+            if q_objects:
+                photos = Photo.objects.filter(q_objects).filter(is_active=True).distinct()[:limit]
+            else:
+                photos = Photo.objects.none()
 
         results = []
         for photo in photos[:limit]:
@@ -308,8 +321,8 @@ def add_to_cart(photo_slug: str, variant_id: int, quantity: int = 1, cart_id: st
             'success': True,
             'message': f'Added {variant.photo.title} ({variant.display_name}) to cart',
             'cart_id': str(cart.id),
-            'cart_total': float(cart.total),
-            'cart_item_count': cart.item_count,
+            'cart_total': float(cart.subtotal),
+            'cart_item_count': cart.total_items,
         }
 
     except ProductVariant.DoesNotExist:

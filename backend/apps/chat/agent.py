@@ -215,10 +215,16 @@ def run_agent(
                 tool_call_id=tool_call['id'],
             ))
 
+            # Parse JSON result (could be object {} or array [])
+            try:
+                parsed_result = json.loads(result)
+            except (json.JSONDecodeError, TypeError):
+                parsed_result = result
+
             yield {
                 'type': 'tool_result',
                 'tool': tool_call['name'],
-                'result': json.loads(result) if result.startswith('{') else result,
+                'result': parsed_result,
             }
 
     yield {'type': 'done'}
