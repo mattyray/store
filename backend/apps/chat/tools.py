@@ -23,6 +23,19 @@ def get_openai_client():
     return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
+def get_absolute_url(file_field):
+    """Convert a file field to an absolute URL for the frontend."""
+    if not file_field:
+        return None
+    url = file_field.url
+    # If already absolute, return as-is
+    if url.startswith('http'):
+        return url
+    # Build absolute URL using FRONTEND_URL or localhost
+    base_url = getattr(settings, 'BACKEND_URL', 'http://localhost:7974')
+    return f"{base_url}{url}"
+
+
 def generate_query_embedding(query: str) -> list:
     """Generate embedding for a search query."""
     client = get_openai_client()
@@ -91,8 +104,8 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                     'min': float(price_range['min']) if price_range else None,
                     'max': float(price_range['max']) if price_range else None,
                 } if price_range else None,
-                'image_url': photo.image.url if photo.image else None,
-                'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+                'image_url': get_absolute_url(photo.image),
+                'thumbnail_url': get_absolute_url(photo.thumbnail) or get_absolute_url(photo.image),
                 'url': f'/photos/{photo.slug}',
             })
 
@@ -158,8 +171,8 @@ def search_photos_filter(
                     'min': float(price_range['min']) if price_range else None,
                     'max': float(price_range['max']) if price_range else None,
                 } if price_range else None,
-                'image_url': photo.image.url if photo.image else None,
-                'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+                'image_url': get_absolute_url(photo.image),
+                'thumbnail_url': get_absolute_url(photo.thumbnail) or get_absolute_url(photo.image),
                 'url': f'/photos/{photo.slug}',
             })
 
