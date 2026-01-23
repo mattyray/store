@@ -89,8 +89,24 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         )}
 
         {/* Message content */}
-        <div className="whitespace-pre-wrap text-sm">
-          {cleanContent}
+        <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
+          {isUser ? (
+            <p className="whitespace-pre-wrap m-0">{cleanContent}</p>
+          ) : (
+            <ReactMarkdown
+              components={{
+                // Compact styling for chat
+                h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold mt-2 mb-1">{children}</h3>,
+                p: ({ children }) => <p className="my-1">{children}</p>,
+                ul: ({ children }) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+                li: ({ children }) => <li className="my-0.5">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              }}
+            >
+              {cleanContent}
+            </ReactMarkdown>
+          )}
           {message.isStreaming && (
             <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
           )}
