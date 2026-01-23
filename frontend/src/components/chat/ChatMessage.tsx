@@ -49,7 +49,18 @@ export default function ChatMessage({ message }: ChatMessageProps) {
 
   // Parse photos from content JSON block if present
   const { cleanContent, photos: parsedPhotos } = parsePhotosFromContent(message.content);
-  const allPhotos = [...(message.photos || []), ...parsedPhotos];
+
+  // Deduplicate photos by slug - prefer tool result photos (they have more data)
+  const photoMap = new Map<string, Photo>();
+  for (const photo of (message.photos || [])) {
+    photoMap.set(photo.slug, photo);
+  }
+  for (const photo of parsedPhotos) {
+    if (!photoMap.has(photo.slug)) {
+      photoMap.set(photo.slug, photo);
+    }
+  }
+  const allPhotos = Array.from(photoMap.values());
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -87,14 +98,14 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         {/* Photo cards from search results */}
         {allPhotos.length > 0 && (
           <div className="mt-3 space-y-2">
-            {allPhotos.slice(0, 6).map((photo) => {
+            {allPhotos.slice(0, 6).map((photo, index) => {
               const imageUrl = photo.thumbnail_url || photo.image_url;
               const photoUrl = photo.url || `/photos/${photo.slug}`;
               if (!imageUrl) return null;
 
               return (
                 <Link
-                  key={photo.slug}
+                  key={`${photo.slug}-${index}`}
                   href={photoUrl}
                   className="block bg-white dark:bg-gray-700 rounded overflow-hidden hover:shadow-md transition"
                 >
