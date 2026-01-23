@@ -53,6 +53,32 @@ You should have these services in your Railway project:
 - **Auto-configured**: Railway sets `DATABASE_URL` automatically
 - **Contains**: All Django models - photos, orders, cart, chat conversations, etc.
 
+#### pgvector for Semantic Search
+
+pgvector is a PostgreSQL extension that adds vector/embedding support directly to Postgres. No separate vector database needed.
+
+**How it works:**
+1. Photo model has a `VectorField(dimensions=1536)` for storing OpenAI embeddings
+2. When user searches "calming ocean photos", query gets embedded via OpenAI
+3. pgvector finds photos with similar embeddings using cosine distance
+
+```python
+# In tools.py - semantic search
+from pgvector.django import CosineDistance
+
+photos = Photo.objects.filter(
+    embedding__isnull=False
+).order_by(
+    CosineDistance('embedding', query_embedding)  # Lower = more similar
+)[:5]
+```
+
+**Why pgvector vs Pinecone/Weaviate?**
+- No extra service to manage
+- Railway Postgres supports it out of the box
+- For ~30 photos, a dedicated vector DB is overkill
+- Scales fine to millions of vectors if needed
+
 ### 4. Redis
 - **Type**: Railway addon
 - **Purpose**: Celery message broker and result backend
