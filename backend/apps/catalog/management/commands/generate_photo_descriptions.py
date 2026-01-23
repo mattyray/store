@@ -127,7 +127,8 @@ class Command(BaseCommand):
             )
 
             bucket_name = settings.AWS_STORAGE_BUCKET_NAME
-            object_key = photo.image.name
+            # Files are stored under media/ prefix in S3
+            object_key = f'media/{photo.image.name}'
 
             self.stdout.write(f'    Fetching from S3: {bucket_name}/{object_key}')
 
