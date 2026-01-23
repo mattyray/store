@@ -11,17 +11,16 @@ from django.conf import settings
 from django.db.models import Q
 
 from langchain_core.tools import tool
+from openai import OpenAI
 
 from apps.catalog.models import Photo, Collection, ProductVariant
 from apps.orders.models import Cart, CartItem
 from apps.core.models import GiftCard
 
 
-# OpenAI embeddings disabled - pgvector not available on Railway
-# def get_openai_client():
-#     """Get OpenAI client for embeddings."""
-#     from openai import OpenAI
-#     return OpenAI(api_key=settings.OPENAI_API_KEY)
+def get_openai_client():
+    """Get OpenAI client for embeddings."""
+    return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def get_absolute_url(file_field):
@@ -37,15 +36,14 @@ def get_absolute_url(file_field):
     return f"{base_url}{url}"
 
 
-# Embeddings disabled - pgvector not available on Railway
-# def generate_query_embedding(query: str) -> list:
-#     """Generate embedding for a search query."""
-#     client = get_openai_client()
-#     response = client.embeddings.create(
-#         model="text-embedding-ada-002",
-#         input=query,
-#     )
-#     return response.data[0].embedding
+def generate_query_embedding(query: str) -> list:
+    """Generate embedding for a search query."""
+    client = get_openai_client()
+    response = client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=query,
+    )
+    return response.data[0].embedding
 
 
 # ============================================================================
@@ -55,7 +53,7 @@ def get_absolute_url(file_field):
 @tool
 def search_photos_semantic(query: str, limit: int = 5) -> list:
     """
-    Search for photos by meaning/vibe using text-based search.
+    Search for photos by meaning/vibe using semantic similarity.
 
     Use this when the customer describes what they're looking for in natural language,
     like "something calm and blue for my bedroom" or "dramatic sunset over the ocean".
@@ -70,7 +68,24 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
     try:
         photos = None
 
-        # Text-based search (vector search disabled - pgvector not available)
+        # Try vector search first if OpenAI is configured and photos have embeddings
+        try:
+            has_embeddings = Photo.objects.filter(is_active=True, embedding__isnull=False).exists()
+            if has_embeddings:
+                query_embedding = generate_query_embedding(query)
+                # Use pgvector to find similar photos if embeddings exist
+                photos = Photo.objects.filter(
+                    is_active=True,
+                    embedding__isnull=False
+                ).order_by(
+                    # Cosine distance - lower is more similar
+                )[:limit * 2]
+        except Exception:
+            # OpenAI unavailable or quota exceeded - fall back to text search
+            pass
+
+        # Fall back to text-based search
+        if not photos or not photos.exists():
             # Split query into words and match any word in any field
             words = query.lower().split()
             q_objects = Q()

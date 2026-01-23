@@ -1,8 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
-
-# pgvector not available on Railway PostgreSQL - embedding field disabled
-# from pgvector.django import VectorField
+from pgvector.django import VectorField
 
 
 class Collection(models.Model):
@@ -97,14 +95,13 @@ class Photo(models.Model):
         help_text='AI-suggested room types (e.g., ["bedroom", "office", "living room"])'
     )
 
-    # Vector embedding for semantic search - disabled (pgvector not available on Railway)
-    # To enable later: pip install pgvector, CREATE EXTENSION vector; in PostgreSQL
-    # embedding = VectorField(
-    #     dimensions=1536,
-    #     null=True,
-    #     blank=True,
-    #     help_text='Vector embedding for semantic similarity search'
-    # )
+    # Vector embedding for semantic search (1536 dimensions for OpenAI embeddings)
+    embedding = VectorField(
+        dimensions=1536,
+        null=True,
+        blank=True,
+        help_text='Vector embedding for semantic similarity search'
+    )
 
     class Meta:
         ordering = ['-created_at']
