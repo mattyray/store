@@ -56,12 +56,17 @@ def chat_stream(request):
     body = parse_json_body(request)
 
     user_message = body.get('message', '').strip()
-    if not user_message:
-        return JsonResponse({'error': 'Message is required'}, status=400)
-
     conversation_id = body.get('conversation_id')
     image_url = body.get('image_url')
     cart_id = body.get('cart_id') or get_cart_id_from_request(request)
+
+    # Allow empty message if image is provided
+    if not user_message and not image_url:
+        return JsonResponse({'error': 'Message or image is required'}, status=400)
+
+    # Default message for image-only uploads
+    if not user_message and image_url:
+        user_message = "Here's a photo of my room. Can you help me visualize how a print would look here?"
 
     # Get or create conversation
     if conversation_id:
@@ -220,6 +225,11 @@ def upload_chat_image(request):
         # Save to storage (S3 in production)
         path = default_storage.save(filename, image_file)
         url = default_storage.url(path)
+
+        # Make URL absolute for frontend
+        if not url.startswith('http'):
+            base_url = getattr(settings, 'BACKEND_URL', 'http://localhost:7974')
+            url = f"{base_url}{url}"
 
         return JsonResponse({
             'success': True,
