@@ -12,7 +12,7 @@ echo "=== Running Django checks ==="
 python manage.py check
 
 echo "=== Checking embeddings ==="
-python -c "import django; django.setup(); from apps.catalog.models import Photo; print(f'Photos with embeddings: {Photo.objects.filter(embedding__isnull=False).count()}/{Photo.objects.count()}')"
+python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); import django; django.setup(); from apps.catalog.models import Photo; print(f'Photos with embeddings: {Photo.objects.filter(embedding__isnull=False).count()}/{Photo.objects.count()}')"
 
 echo "=== Starting gunicorn ==="
 exec gunicorn config.wsgi:application \
