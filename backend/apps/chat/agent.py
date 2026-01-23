@@ -131,6 +131,7 @@ def run_agent(
     # Agent loop - handle tool calls
     max_iterations = 10
     iteration = 0
+    total_text_yielded = False
 
     while iteration < max_iterations:
         iteration += 1
@@ -143,12 +144,19 @@ def run_agent(
             # Handle text content
             if chunk.content:
                 if isinstance(chunk.content, str):
+                    # Add separator between iterations if we already yielded text
+                    if total_text_yielded and not full_response:
+                        yield {'type': 'text', 'content': '\n\n'}
                     full_response += chunk.content
+                    total_text_yielded = True
                     yield {'type': 'text', 'content': chunk.content}
                 elif isinstance(chunk.content, list):
                     for item in chunk.content:
                         if isinstance(item, dict) and item.get('type') == 'text':
+                            if total_text_yielded and not full_response:
+                                yield {'type': 'text', 'content': '\n\n'}
                             full_response += item.get('text', '')
+                            total_text_yielded = True
                             yield {'type': 'text', 'content': item.get('text', '')}
 
             # Collect tool calls

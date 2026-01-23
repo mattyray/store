@@ -31,14 +31,14 @@ class CartView(APIView):
     def get(self, request):
         """Get current cart contents."""
         cart = get_or_create_cart(request)
-        serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'request': request})
         return Response(serializer.data)
 
     def delete(self, request):
         """Clear entire cart."""
         cart = get_or_create_cart(request)
         cart.items.all().delete()
-        serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'request': request})
         return Response(serializer.data)
 
 
@@ -112,7 +112,7 @@ class CartItemDetailView(APIView):
         cart_item.quantity = serializer.validated_data['quantity']
         cart_item.save()
 
-        return Response(CartSerializer(cart_item.cart).data)
+        return Response(CartSerializer(cart_item.cart, context={'request': request}).data)
 
     def delete(self, request, item_id):
         """Remove item from cart."""
@@ -126,7 +126,7 @@ class CartItemDetailView(APIView):
         cart = cart_item.cart
         cart_item.delete()
 
-        return Response(CartSerializer(cart).data)
+        return Response(CartSerializer(cart, context={'request': request}).data)
 
 
 class OrderTrackingView(APIView):
