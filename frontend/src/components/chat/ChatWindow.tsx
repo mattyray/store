@@ -13,7 +13,9 @@ interface Message {
   photos?: Array<{
     slug: string;
     title: string;
-    image_url: string;
+    image_url?: string;
+    thumbnail_url?: string;
+    url?: string;
     price_range?: { min: number; max: number };
   }>;
   isStreaming?: boolean;
@@ -142,22 +144,26 @@ export default function ChatWindow({
               // Extract photos from tool results
               if (chunk.result && Array.isArray(chunk.result)) {
                 for (const item of chunk.result) {
-                  if (item.slug && item.title && item.image_url) {
+                  if (item.slug && item.title && (item.thumbnail_url || item.image_url)) {
                     photos.push({
                       slug: item.slug,
                       title: item.title,
                       image_url: item.image_url,
+                      thumbnail_url: item.thumbnail_url,
+                      url: item.url,
                       price_range: item.price_range,
                     });
                   }
                 }
               } else if (chunk.result && typeof chunk.result === 'object') {
                 const result = chunk.result as Record<string, unknown>;
-                if (result.slug && result.title && result.image_url) {
+                if (result.slug && result.title && (result.thumbnail_url || result.image_url)) {
                   photos.push({
                     slug: result.slug as string,
                     title: result.title as string,
                     image_url: result.image_url as string,
+                    thumbnail_url: result.thumbnail_url as string,
+                    url: result.url as string,
                     price_range: result.price_range as { min: number; max: number },
                   });
                 }
