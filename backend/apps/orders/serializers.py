@@ -1,8 +1,21 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from apps.catalog.models import ProductVariant, Product
 from apps.catalog.serializers import ProductVariantSerializer, ProductListSerializer
 from .models import Cart, CartItem, Order, OrderItem
+
+
+def build_absolute_image_url(url):
+    """Build absolute URL for an image using BACKEND_URL setting."""
+    if not url:
+        return None
+    if url.startswith('http'):
+        return url
+    backend_url = getattr(settings, 'BACKEND_URL', None)
+    if backend_url:
+        return f"{backend_url}/{url.lstrip('/')}"
+    return url
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -25,13 +38,12 @@ class CartItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_image(self, obj):
-        request = self.context.get('request')
         if obj.variant and obj.variant.photo.thumbnail:
-            return request.build_absolute_uri(obj.variant.photo.thumbnail.url) if request else obj.variant.photo.thumbnail.url
+            return build_absolute_image_url(obj.variant.photo.thumbnail.url)
         elif obj.variant and obj.variant.photo.image:
-            return request.build_absolute_uri(obj.variant.photo.image.url) if request else obj.variant.photo.image.url
+            return build_absolute_image_url(obj.variant.photo.image.url)
         elif obj.product and obj.product.image:
-            return request.build_absolute_uri(obj.product.image.url) if request else obj.product.image.url
+            return build_absolute_image_url(obj.product.image.url)
         return None
 
     def get_slug(self, obj):

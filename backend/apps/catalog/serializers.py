@@ -1,6 +1,38 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import Collection, Photo, ProductVariant, Product
+
+
+class AbsoluteImageField(serializers.ImageField):
+    """ImageField that returns absolute URLs using BACKEND_URL setting.
+
+    This is needed because server-side rendering from Next.js uses internal Docker
+    hostnames (e.g., 'http://backend:7974') which aren't accessible from the browser.
+    """
+
+    def to_representation(self, value):
+        if not value:
+            return None
+
+        # Get the relative URL
+        url = value.url
+
+        # If already absolute (e.g., S3), return as-is
+        if url.startswith('http'):
+            return url
+
+        # Build absolute URL using BACKEND_URL setting
+        backend_url = getattr(settings, 'BACKEND_URL', None)
+        if backend_url:
+            return f"{backend_url}/{url.lstrip('/')}"
+
+        # Fallback to request-based URL building
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+
+        return url
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -21,6 +53,8 @@ class PhotoListSerializer(serializers.ModelSerializer):
     collection_slug = serializers.CharField(source='collection.slug', read_only=True)
     price_range = serializers.DictField(read_only=True)
     orientation_display = serializers.CharField(source='get_orientation_display', read_only=True)
+    image = AbsoluteImageField(read_only=True)
+    thumbnail = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Photo
@@ -40,6 +74,8 @@ class PhotoDetailSerializer(serializers.ModelSerializer):
     price_range = serializers.DictField(read_only=True)
     orientation_display = serializers.CharField(source='get_orientation_display', read_only=True)
     aspect_ratio = serializers.FloatField(read_only=True)
+    image = AbsoluteImageField(read_only=True)
+    thumbnail = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Photo
@@ -55,6 +91,7 @@ class PhotoDetailSerializer(serializers.ModelSerializer):
 class CollectionListSerializer(serializers.ModelSerializer):
     """Serializer for collection list views."""
     photo_count = serializers.IntegerField(read_only=True)
+    cover_image = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Collection
@@ -69,6 +106,7 @@ class CollectionDetailSerializer(serializers.ModelSerializer):
     # photos are prefetched in the view with is_active=True filter
     photos = PhotoListSerializer(many=True, read_only=True)
     photo_count = serializers.IntegerField(read_only=True)
+    cover_image = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Collection
@@ -83,6 +121,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     is_in_stock = serializers.BooleanField(read_only=True)
     is_on_sale = serializers.BooleanField(read_only=True)
     product_type_display = serializers.CharField(source='get_product_type_display', read_only=True)
+    image = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Product
@@ -98,6 +137,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     is_in_stock = serializers.BooleanField(read_only=True)
     is_on_sale = serializers.BooleanField(read_only=True)
     product_type_display = serializers.CharField(source='get_product_type_display', read_only=True)
+    image = AbsoluteImageField(read_only=True)
 
     class Meta:
         model = Product

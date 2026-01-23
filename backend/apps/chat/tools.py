@@ -410,8 +410,8 @@ def remove_from_cart(item_id: int, cart_id: str = None) -> dict:
         return {
             'success': True,
             'message': f'Removed {item_name} from cart',
-            'cart_total': float(cart.total),
-            'cart_item_count': cart.item_count,
+            'cart_total': float(cart.subtotal),
+            'cart_item_count': cart.total_items,
         }
 
     except (Cart.DoesNotExist, CartItem.DoesNotExist):
@@ -451,8 +451,8 @@ def update_cart_item(item_id: int, quantity: int, cart_id: str = None) -> dict:
         return {
             'success': True,
             'message': message,
-            'cart_total': float(cart.total),
-            'cart_item_count': cart.item_count,
+            'cart_total': float(cart.subtotal),
+            'cart_item_count': cart.total_items,
         }
 
     except (Cart.DoesNotExist, CartItem.DoesNotExist):
@@ -485,7 +485,7 @@ def start_checkout(cart_id: str = None) -> dict:
 
         cart = Cart.objects.get(id=cart_id)
 
-        if cart.item_count == 0:
+        if cart.total_items == 0:
             return {'error': 'Cart is empty'}
 
         # Return the checkout URL - frontend will handle Stripe session creation
@@ -494,7 +494,7 @@ def start_checkout(cart_id: str = None) -> dict:
         return {
             'success': True,
             'checkout_url': checkout_url,
-            'cart_total': float(cart.total),
+            'cart_total': float(cart.subtotal),
             'message': 'Ready for checkout! Click the link to complete your purchase.',
         }
 

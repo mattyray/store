@@ -49,3 +49,6 @@ STORAGES = {
 
 # Email - Console backend for development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Backend URL for building absolute media URLs (used when internal hostname differs from public)
+BACKEND_URL = 'http://localhost:7974'
