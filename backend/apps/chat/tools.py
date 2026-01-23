@@ -222,8 +222,8 @@ def get_photo_details(photo_slug: str) -> dict:
             'subjects': photo.ai_subjects,
             'room_suggestions': photo.ai_room_suggestions,
             'collection': photo.collection.name if photo.collection else None,
-            'image_url': photo.image.url if photo.image else None,
-            'thumbnail_url': photo.thumbnail.url if photo.thumbnail else (photo.image.url if photo.image else None),
+            'image_url': get_absolute_url(photo.image),
+            'thumbnail_url': get_absolute_url(photo.thumbnail) or get_absolute_url(photo.image),
             'url': f'/photos/{photo.slug}',
             'variants': variants,
         }
