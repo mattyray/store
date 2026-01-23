@@ -78,61 +78,68 @@ export default function ChatMessage({ message }: ChatMessageProps) {
 
         {/* Message content */}
         <div className="whitespace-pre-wrap text-sm">
-          {message.content}
+          {cleanContent}
           {message.isStreaming && (
             <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
           )}
         </div>
 
         {/* Photo cards from search results */}
-        {message.photos && message.photos.length > 0 && (
+        {allPhotos.length > 0 && (
           <div className="mt-3 space-y-2">
-            {message.photos.slice(0, 4).map((photo) => (
-              <Link
-                key={photo.slug}
-                href={`/photos/${photo.slug}`}
-                className="block bg-white dark:bg-gray-700 rounded overflow-hidden hover:shadow-md transition"
-              >
-                <div className="flex gap-3 p-2">
-                  <div className="w-16 h-16 flex-shrink-0 relative">
-                    <Image
-                      src={photo.image_url}
-                      alt={photo.title}
-                      fill
-                      className="object-cover rounded"
-                      sizes="64px"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
-                      {photo.title}
-                    </p>
-                    {photo.price_range && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        ${photo.price_range.min.toLocaleString()} - $
-                        {photo.price_range.max.toLocaleString()}
+            {allPhotos.slice(0, 6).map((photo) => {
+              const imageUrl = photo.thumbnail_url || photo.image_url;
+              const photoUrl = photo.url || `/photos/${photo.slug}`;
+              if (!imageUrl) return null;
+
+              return (
+                <Link
+                  key={photo.slug}
+                  href={photoUrl}
+                  className="block bg-white dark:bg-gray-700 rounded overflow-hidden hover:shadow-md transition"
+                >
+                  <div className="flex gap-3 p-2">
+                    <div className="w-16 h-16 flex-shrink-0 relative">
+                      <Image
+                        src={imageUrl}
+                        alt={photo.title}
+                        fill
+                        className="object-cover rounded"
+                        sizes="64px"
+                        unoptimized
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
+                        {photo.title}
                       </p>
-                    )}
+                      {photo.price_range && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          ${photo.price_range.min.toLocaleString()} - $
+                          {photo.price_range.max.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                    <svg
+                      className="w-4 h-4 text-gray-400 flex-shrink-0 self-center"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
                   </div>
-                  <svg
-                    className="w-4 h-4 text-gray-400 flex-shrink-0 self-center"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </Link>
-            ))}
-            {message.photos.length > 4 && (
+                </Link>
+              );
+            })}
+            {allPhotos.length > 6 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                +{message.photos.length - 4} more
+                +{allPhotos.length - 6} more
               </p>
             )}
           </div>
