@@ -150,6 +150,7 @@ export default function ChatWindow({
                 }
               } else if (chunk.result && typeof chunk.result === 'object') {
                 const result = chunk.result as Record<string, unknown>;
+                // Handle photo results
                 if (result.slug && result.title && (result.thumbnail_url || result.image_url)) {
                   photos.push({
                     slug: result.slug as string,
@@ -159,6 +160,12 @@ export default function ChatWindow({
                     url: result.url as string,
                     price_range: result.price_range as { min: number; max: number },
                   });
+                }
+                // Handle cart updates - save cart_id and trigger refresh
+                if (result.cart_id && result.success) {
+                  localStorage.setItem('cart_id', result.cart_id as string);
+                  // Dispatch event to refresh cart in other components
+                  window.dispatchEvent(new CustomEvent('cart-updated'));
                 }
               }
               break;

@@ -16,15 +16,16 @@ from .agent import run_agent
 
 
 def get_cart_id_from_request(request):
-    """Extract cart ID from session or request."""
-    # Check session first
-    cart_id = request.session.get('cart_id')
+    """Get or create cart using session key (same as main site's cart system)."""
+    from apps.orders.models import Cart
 
-    # Check request body
-    if not cart_id and hasattr(request, '_body_json'):
-        cart_id = request._body_json.get('cart_id')
+    # Ensure session exists
+    if not request.session.session_key:
+        request.session.create()
 
-    return cart_id
+    session_key = request.session.session_key
+    cart, _ = Cart.objects.get_or_create(session_key=session_key)
+    return str(cart.id)
 
 
 def parse_json_body(request):
