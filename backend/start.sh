@@ -11,6 +11,9 @@ python manage.py migrate
 echo "=== Running Django checks ==="
 python manage.py check
 
+echo "=== Generating embeddings (if needed) ==="
+python manage.py generate_photo_embeddings
+
 echo "=== Checking embeddings ==="
 python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production'); import django; django.setup(); from apps.catalog.models import Photo; print(f'Photos with embeddings: {Photo.objects.filter(embedding__isnull=False).count()}/{Photo.objects.count()}')"
 
