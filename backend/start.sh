@@ -11,6 +11,9 @@ python manage.py migrate
 echo "=== Running Django checks ==="
 python manage.py check
 
+echo "=== Checking embeddings ==="
+python -c "from apps.catalog.models import Photo; print(f'Photos with embeddings: {Photo.objects.filter(embedding__isnull=False).count()}/{Photo.objects.count()}')"
+
 echo "=== Starting gunicorn ==="
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
