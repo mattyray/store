@@ -113,42 +113,21 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Completed: {success_count} successful, {error_count} errors'))
 
     def _get_image_data(self, photo) -> dict | None:
-        """Load image from S3 and return base64 encoded data with media type."""
+        """Load image via public URL and return base64 encoded data with media type."""
         try:
-            if not photo.image or not photo.image.name:
+            if not photo.image:
                 return None
 
-            # Use boto3 to read directly from S3 with AWS credentials
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-east-1'),
-            )
+            # Use the public URL that Django/storages generates (same as website uses)
+            image_url = photo.image.url
+            self.stdout.write(f'    Fetching: {image_url}')
 
-            bucket_name = settings.AWS_STORAGE_BUCKET_NAME
-            # Files are stored under media/ prefix in S3
-            object_key = f'media/{photo.image.name}'
-
-            self.stdout.write(f'    Fetching from S3: {bucket_name}/{object_key}')
-
-            # Get object from S3
-            response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
-            image_bytes = response['Body'].read()
+            # Download image via HTTP
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
 
             # Determine media type from content type or file extension
-            content_type = response.get('ContentType', '')
-            if not content_type:
-                # Fallback to extension
-                ext = object_key.lower().split('.')[-1]
-                content_type = {
-                    'png': 'image/png',
-                    'webp': 'image/webp',
-                    'gif': 'image/gif',
-                    'jpg': 'image/jpeg',
-                    'jpeg': 'image/jpeg',
-                }.get(ext, 'image/jpeg')
-
+            content_type = response.headers.get('content-type', '')
             if 'png' in content_type:
                 media_type = 'image/png'
             elif 'webp' in content_type:
@@ -159,7 +138,7 @@ class Command(BaseCommand):
                 media_type = 'image/jpeg'
 
             # Base64 encode
-            image_base64 = base64.standard_b64encode(image_bytes).decode('utf-8')
+            image_base64 = base64.standard_b64encode(response.content).decode('utf-8')
 
             return {
                 'type': 'base64',
@@ -167,8 +146,8 @@ class Command(BaseCommand):
                 'data': image_base64,
             }
 
-        except ClientError as e:
-            self.stderr.write(f'    S3 error: {e}')
+        except requests.RequestException as e:
+            self.stderr.write(f'    HTTP error: {e}')
             return None
         except Exception as e:
             self.stderr.write(f'    Error loading image: {e}')
