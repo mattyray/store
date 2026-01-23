@@ -33,8 +33,8 @@ def build_message_history(conversation: Conversation) -> list:
     for msg in conversation.messages.all():
         if msg.role == 'user':
             content = msg.content
-            # Handle images in user messages
-            if msg.image_url:
+            # Handle images in user messages (only HTTPS URLs - Claude API requirement)
+            if msg.image_url and msg.image_url.startswith('https://'):
                 content = [
                     {"type": "text", "text": msg.content},
                     {"type": "image_url", "image_url": {"url": msg.image_url}},
@@ -119,8 +119,8 @@ def run_agent(
         *history[:-1],  # Exclude the just-added user message since we'll add it fresh
     ]
 
-    # Add user message with optional image
-    if image_url:
+    # Add user message with optional image (only HTTPS URLs - Claude API requirement)
+    if image_url and image_url.startswith('https://'):
         messages.append(HumanMessage(content=[
             {"type": "text", "text": user_message},
             {"type": "image_url", "image_url": {"url": image_url}},

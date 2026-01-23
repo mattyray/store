@@ -34,7 +34,14 @@ export default function ChatWindow({
   onClose,
   onNewMessage,
 }: ChatWindowProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const welcomeMessage: Message = {
+    id: 'welcome',
+    role: 'assistant',
+    content:
+      "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
+  };
+
+  const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,20 +52,6 @@ export default function ChatWindow({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Add welcome message if no conversation
-  useEffect(() => {
-    if (!conversationId && messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content:
-            "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
-        },
-      ]);
-    }
-  }, [conversationId, messages.length]);
 
   const handleSendMessage = useCallback(
     async (content: string, imageFile?: File) => {
@@ -199,14 +192,7 @@ export default function ChatWindow({
   );
 
   const handleNewConversation = useCallback(() => {
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content:
-          "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
-      },
-    ]);
+    setMessages([welcomeMessage]);
     onConversationIdChange('');
     localStorage.removeItem('chat_conversation_id');
   }, [onConversationIdChange]);

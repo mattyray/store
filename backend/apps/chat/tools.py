@@ -592,8 +592,16 @@ def analyze_room_image(image_url: str) -> dict:
         image_url: URL of the uploaded room image
 
     Returns:
-        Analysis ID and status
+        Analysis ID and status, or helpful message if analysis unavailable
     """
+    # Check if URL is HTTPS (required for Claude Vision API)
+    if image_url.startswith('http://'):
+        return {
+            'status': 'unavailable',
+            'message': 'Room visualization is available in production. For now, I can help you choose the right size based on your wall dimensions! What are the approximate dimensions of the wall where you want to hang the print?',
+            'suggestion': 'Tell me your wall width and I can recommend the perfect print size.',
+        }
+
     try:
         from apps.mockup.models import WallAnalysis
         from apps.mockup.tasks import analyze_wall_image
@@ -613,6 +621,12 @@ def analyze_room_image(image_url: str) -> dict:
             'message': 'Analyzing your room photo. This may take a moment...',
         }
 
+    except ImportError:
+        # Mockup app not installed
+        return {
+            'status': 'unavailable',
+            'message': 'I can see your room photo! While the automatic mockup feature is being set up, I can help you choose the right size. What are the approximate dimensions of that wall?',
+        }
     except Exception as e:
         return {'error': str(e)}
 
