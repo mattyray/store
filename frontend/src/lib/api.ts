@@ -302,7 +302,23 @@ export async function* streamChat(
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      // Process any remaining data in buffer
+      if (buffer.trim()) {
+        const lines = buffer.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              yield data as ChatChunk;
+            } catch {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
 
@@ -314,9 +330,10 @@ export async function* streamChat(
       if (line.startsWith('data: ')) {
         try {
           const data = JSON.parse(line.slice(6));
+          console.log('[API] SSE chunk:', data.type);
           yield data as ChatChunk;
-        } catch {
-          // Skip malformed JSON
+        } catch (e) {
+          console.error('[API] Parse error:', line.slice(0, 100), e);
         }
       }
     }

@@ -3,6 +3,8 @@ LangChain agent setup for the AI shopping assistant.
 
 Uses Claude as the LLM with tool-calling capabilities.
 """
+import json
+import uuid
 from typing import Generator, Any
 
 from django.conf import settings
@@ -55,8 +57,6 @@ def build_message_history(conversation: Conversation) -> list:
 
 def execute_tool(tool_name: str, tool_args: dict, cart_id: str = None) -> str:
     """Execute a tool by name with the given arguments."""
-    import json
-
     # Find the tool function
     tool_func = None
     for t in ALL_TOOLS:
@@ -96,8 +96,6 @@ def run_agent(
     Yields:
         dict with 'type' and 'content' keys for streaming response chunks
     """
-    import json
-
     llm = get_llm()
     llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
@@ -112,12 +110,14 @@ def run_agent(
 
     # Build message history
     history = build_message_history(conversation)
+    print(f"[CHAT DEBUG] History length: {len(history)}, user_message: {user_message[:50]}")
 
     # Build the prompt
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         *history[:-1],  # Exclude the just-added user message since we'll add it fresh
     ]
+    print(f"[CHAT DEBUG] Messages to LLM: {len(messages)} (system + {len(history)-1} history)")
 
     # Add user message with optional image (only HTTPS URLs - Claude API requirement)
     if image_url and image_url.startswith('https://'):
@@ -136,9 +136,10 @@ def run_agent(
     while iteration < max_iterations:
         iteration += 1
 
-        # Stream the response
+        # Stream the response - use astream_events or collect chunks properly
         full_response = ""
         tool_calls = []
+        tool_call_chunks = {}  # Dict to accumulate tool call chunks by index
 
         for chunk in llm_with_tools.stream(messages):
             # Handle text content
@@ -159,25 +160,42 @@ def run_agent(
                             total_text_yielded = True
                             yield {'type': 'text', 'content': item.get('text', '')}
 
-            # Collect tool calls
-            if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
-                tool_calls.extend(chunk.tool_calls)
+            # Collect tool calls from chunks - they come in pieces during streaming
             if hasattr(chunk, 'tool_call_chunks') and chunk.tool_call_chunks:
-                for tc in chunk.tool_call_chunks:
-                    # Accumulate tool call chunks
-                    pass  # Tool calls are aggregated at the end
+                for tc_chunk in chunk.tool_call_chunks:
+                    idx = tc_chunk.get('index', 0)
+                    if idx not in tool_call_chunks:
+                        tool_call_chunks[idx] = {'id': '', 'name': '', 'args': ''}
+                    if tc_chunk.get('id'):
+                        tool_call_chunks[idx]['id'] = tc_chunk['id']
+                    if tc_chunk.get('name'):
+                        tool_call_chunks[idx]['name'] = tc_chunk['name']
+                    if tc_chunk.get('args'):
+                        tool_call_chunks[idx]['args'] += tc_chunk['args']
 
-        # Get the final message to check for tool calls
-        final_response = llm_with_tools.invoke(messages)
-
-        if hasattr(final_response, 'tool_calls') and final_response.tool_calls:
-            tool_calls = final_response.tool_calls
+        # Convert accumulated chunks to tool calls
+        print(f"[CHAT DEBUG] tool_call_chunks: {tool_call_chunks}")
+        for idx in sorted(tool_call_chunks.keys()):
+            tc = tool_call_chunks[idx]
+            if tc['name']:  # Only include if we have a tool name
+                args = {}
+                if tc['args']:
+                    try:
+                        args = json.loads(tc['args'])
+                    except json.JSONDecodeError:
+                        pass
+                tool_calls.append({
+                    'id': tc['id'] or f"call_{uuid.uuid4().hex[:24]}",
+                    'name': tc['name'],
+                    'args': args,
+                })
+        print(f"[CHAT DEBUG] Parsed tool_calls: {tool_calls}")
 
         # Save assistant message
         assistant_msg = Message.objects.create(
             conversation=conversation,
             role='assistant',
-            content=full_response or final_response.content,
+            content=full_response,
             tool_calls=[{
                 'id': tc['id'],
                 'name': tc['name'],
@@ -191,21 +209,33 @@ def run_agent(
 
         # Execute tool calls
         messages.append(AIMessage(
-            content=full_response or final_response.content,
+            content=full_response,
             tool_calls=tool_calls,
         ))
 
         for tool_call in tool_calls:
+            # Skip invalid tool calls (empty name or missing data)
+            tool_name = tool_call.get('name', '')
+            tool_id = tool_call.get('id', '')
+            tool_args = tool_call.get('args', {})
+
+            if not tool_name:
+                continue
+
+            # Generate a tool_call_id if missing
+            if not tool_id:
+                tool_id = f"call_{uuid.uuid4().hex[:24]}"
+
             yield {
                 'type': 'tool_use',
-                'tool': tool_call['name'],
-                'args': tool_call['args'],
+                'tool': tool_name,
+                'args': tool_args,
             }
 
             # Execute the tool
             result = execute_tool(
-                tool_call['name'],
-                tool_call['args'],
+                tool_name,
+                tool_args,
                 cart_id=cart_id,
             )
 
@@ -214,13 +244,13 @@ def run_agent(
                 conversation=conversation,
                 role='tool',
                 content=result,
-                tool_call_id=tool_call['id'],
+                tool_call_id=tool_id,
             )
 
             # Add to messages for next iteration
             messages.append(ToolMessage(
                 content=result,
-                tool_call_id=tool_call['id'],
+                tool_call_id=tool_id,
             ))
 
             # Parse JSON result (could be object {} or array [])
@@ -231,7 +261,7 @@ def run_agent(
 
             yield {
                 'type': 'tool_result',
-                'tool': tool_call['name'],
+                'tool': tool_name,
                 'result': parsed_result,
             }
 

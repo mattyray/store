@@ -68,16 +68,18 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
     try:
         photos = None
 
-        # Try vector search first if OpenAI is configured
+        # Try vector search first if OpenAI is configured and photos have embeddings
         try:
-            query_embedding = generate_query_embedding(query)
-            # Use pgvector to find similar photos if embeddings exist
-            photos = Photo.objects.filter(
-                is_active=True,
-                embedding__isnull=False
-            ).order_by(
-                # Cosine distance - lower is more similar
-            )[:limit * 2]
+            has_embeddings = Photo.objects.filter(is_active=True, embedding__isnull=False).exists()
+            if has_embeddings:
+                query_embedding = generate_query_embedding(query)
+                # Use pgvector to find similar photos if embeddings exist
+                photos = Photo.objects.filter(
+                    is_active=True,
+                    embedding__isnull=False
+                ).order_by(
+                    # Cosine distance - lower is more similar
+                )[:limit * 2]
         except Exception:
             # OpenAI unavailable or quota exceeded - fall back to text search
             pass
@@ -85,7 +87,7 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
         # Fall back to text-based search
         if not photos or not photos.exists():
             # Split query into words and match any word in any field
-            words = query.split()
+            words = query.lower().split()
             q_objects = Q()
             for word in words:
                 if len(word) >= 3:  # Skip very short words
@@ -94,12 +96,17 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                         Q(title__icontains=word) |
                         Q(ai_mood__icontains=word) |
                         Q(ai_subjects__icontains=word) |
-                        Q(description__icontains=word)
+                        Q(description__icontains=word) |
+                        Q(location__icontains=word) |
+                        Q(slug__icontains=word) |
+                        Q(collection__name__icontains=word)
                     )
             if q_objects:
                 photos = Photo.objects.filter(q_objects).filter(is_active=True).distinct()[:limit]
-            else:
-                photos = Photo.objects.none()
+
+        # If still no results, just return some photos so the user sees something
+        if not photos or not photos.exists():
+            photos = Photo.objects.filter(is_active=True).order_by('?')[:limit]
 
         results = []
         for photo in photos[:limit]:
@@ -108,7 +115,7 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                 'id': photo.id,
                 'slug': photo.slug,
                 'title': photo.title,
-                'description': photo.ai_description or photo.description,
+                'description': photo.ai_description or photo.description or f"Beautiful {photo.title} photography print",
                 'colors': photo.ai_colors,
                 'mood': photo.ai_mood,
                 'subjects': photo.ai_subjects,

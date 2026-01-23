@@ -50,20 +50,64 @@ export default function ChatWindow({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load chat history when conversation ID exists
+  // But DON'T load if we're currently loading (streaming a response)
   useEffect(() => {
-    if (conversationId && !historyLoaded) {
+    if (conversationId && !historyLoaded && !isLoading) {
       setHistoryLoaded(true);
       getChatHistory(conversationId)
         .then((data) => {
           if (data.messages && data.messages.length > 0) {
-            const loadedMessages: Message[] = data.messages
-              .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
-              .map((msg) => ({
-                id: `history-${msg.id}`,
-                role: msg.role as 'user' | 'assistant',
-                content: msg.content,
-                imageUrl: msg.image_url || undefined,
-              }));
+            const loadedMessages: Message[] = [];
+            const allMessages = data.messages;
+
+            for (let i = 0; i < allMessages.length; i++) {
+              const msg = allMessages[i];
+
+              if (msg.role === 'user') {
+                loadedMessages.push({
+                  id: `history-${msg.id}`,
+                  role: 'user',
+                  content: msg.content,
+                  imageUrl: msg.image_url || undefined,
+                });
+              } else if (msg.role === 'assistant') {
+                // Look for tool results in the following messages to extract photos
+                const photos: Message['photos'] = [];
+                if (msg.tool_calls && msg.tool_calls.length > 0) {
+                  // Find corresponding tool result messages
+                  for (let j = i + 1; j < allMessages.length && allMessages[j].role === 'tool'; j++) {
+                    try {
+                      const toolResult = JSON.parse(allMessages[j].content);
+                      if (Array.isArray(toolResult)) {
+                        for (const item of toolResult) {
+                          if (item.slug && item.title && (item.thumbnail_url || item.image_url)) {
+                            photos.push({
+                              slug: item.slug,
+                              title: item.title,
+                              image_url: item.image_url,
+                              thumbnail_url: item.thumbnail_url,
+                              url: item.url,
+                              price_range: item.price_range,
+                            });
+                          }
+                        }
+                      }
+                    } catch {
+                      // Skip malformed JSON
+                    }
+                  }
+                }
+
+                loadedMessages.push({
+                  id: `history-${msg.id}`,
+                  role: 'assistant',
+                  content: msg.content,
+                  photos: photos.length > 0 ? photos : undefined,
+                });
+              }
+              // Skip 'tool' role messages - they're processed above
+            }
+
             // Prepend welcome message and add loaded messages
             setMessages([welcomeMessage, ...loadedMessages]);
           }
@@ -139,6 +183,7 @@ export default function ChatWindow({
           imageUrl,
           cartId
         )) {
+          console.log('[CHAT] Received chunk:', chunk.type, chunk);
           switch (chunk.type) {
             case 'conversation_id':
               if (chunk.id && !currentConversationId) {
@@ -150,6 +195,7 @@ export default function ChatWindow({
             case 'text':
               if (chunk.content) {
                 accumulatedContent += chunk.content;
+                console.log('[CHAT] Text accumulated:', accumulatedContent.length, 'chars');
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMessageId
