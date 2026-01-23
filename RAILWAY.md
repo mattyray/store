@@ -1,5 +1,37 @@
 # Railway Production Notes
 
+## Key Production Files
+
+| File | Purpose |
+|------|---------|
+| `backend/start.sh` | Main startup script - runs migrations, embeddings, starts gunicorn |
+| `backend/Procfile` | Defines web + worker processes (web uses start.sh via Dockerfile) |
+| `backend/Dockerfile` | Container build - installs deps, copies code, runs start.sh |
+| `backend/config/settings/production.py` | Production Django settings |
+| `backend/config/settings/base.py` | Shared Django settings |
+| `frontend/netlify.toml` | Netlify build config for Next.js |
+
+## Deployment Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│    Netlify      │     │    Railway      │
+│   (Frontend)    │────▶│   (Backend)     │
+│   Next.js 15    │     │   Django 5      │
+└─────────────────┘     └────────┬────────┘
+                                 │
+                        ┌────────▼────────┐
+                        │ Railway Postgres │
+                        │  + pgvector     │
+                        └─────────────────┘
+```
+
+- **Frontend**: Netlify (auto-deploys from `frontend/` on push to main)
+- **Backend**: Railway (auto-deploys from `backend/` on push to main)
+- **Database**: Railway PostgreSQL addon with pgvector extension
+- **Media**: AWS S3
+- **Payments**: Stripe
+
 ## Accessing the Container Shell
 
 Railway uses `railway ssh` (not `railway shell`) to access the running container:
@@ -131,3 +163,75 @@ railway logs
 # SSH into container
 railway ssh
 ```
+
+## Backend File Structure
+
+```
+backend/
+├── start.sh                    # Startup script (migrations, embeddings, gunicorn)
+├── Procfile                    # web: uses Dockerfile, worker: celery
+├── Dockerfile                  # Python 3.12, installs requirements, runs start.sh
+├── manage.py
+├── requirements.txt
+├── config/
+│   ├── settings/
+│   │   ├── base.py             # Shared settings
+│   │   ├── development.py      # Local dev settings
+│   │   └── production.py       # Production settings (uses env vars)
+│   ├── urls.py
+│   └── wsgi.py
+└── apps/
+    ├── catalog/                # Photos, Collections, ProductVariants
+    │   ├── models.py           # Photo model has embedding field (pgvector)
+    │   └── management/commands/
+    │       ├── generate_photo_descriptions.py  # Claude Vision
+    │       └── generate_photo_embeddings.py    # OpenAI embeddings
+    ├── chat/                   # AI Shopping Agent
+    │   ├── agent.py            # LangChain agent with streaming
+    │   ├── tools.py            # All agent tools (search, cart, mockup, etc.)
+    │   ├── prompts.py          # System prompt
+    │   ├── models.py           # Conversation, Message
+    │   └── views.py            # SSE streaming endpoint
+    ├── mockup/                 # Room mockup generation
+    │   ├── wall_detector.py    # MiDaS ONNX depth estimation
+    │   └── mockup_generator.py # Composite print onto wall
+    ├── orders/                 # Cart, Order, OrderItem
+    ├── payments/               # Stripe checkout, webhooks
+    └── core/                   # Contact, Newsletter, GiftCards
+```
+
+## Frontend (Netlify)
+
+The frontend auto-deploys to Netlify from the `frontend/` directory.
+
+**netlify.toml** configures:
+- Build command: `npm run build`
+- Publish directory: `.next`
+- Uses `@netlify/plugin-nextjs` for App Router support
+
+**Environment variables** (set in Netlify dashboard):
+```
+NEXT_PUBLIC_API_URL=https://your-backend.railway.app/api
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+```
+
+## Stripe Webhooks
+
+Webhook endpoint: `https://your-backend.railway.app/api/payments/webhook/`
+
+Events to enable in Stripe dashboard:
+- `checkout.session.completed`
+- `payment_intent.succeeded`
+- `payment_intent.payment_failed`
+
+Set `STRIPE_WEBHOOK_SECRET` in Railway from the Stripe dashboard webhook signing secret.
+
+## Adding New Photos
+
+When you add new photos via Django admin:
+
+1. Upload the photo (goes to S3)
+2. Run `generate_photo_descriptions` to get AI metadata (auto on next deploy, or via SSH)
+3. Run `generate_photo_embeddings` to create vector embeddings (auto on every deploy)
+
+The startup script runs embeddings automatically, so just push a deploy after adding photos.
