@@ -301,10 +301,11 @@ def add_to_cart(photo_slug: str, variant_id: int, quantity: int = 1, cart_id: st
         variant = ProductVariant.objects.get(id=variant_id, is_available=True)
 
         # Get or create cart
+        import uuid
         if cart_id:
-            cart, _ = Cart.objects.get_or_create(id=cart_id)
+            cart, _ = Cart.objects.get_or_create(id=cart_id, defaults={'session_key': str(uuid.uuid4())})
         else:
-            cart = Cart.objects.create()
+            cart = Cart.objects.create(session_key=str(uuid.uuid4()))
 
         # Check if item already in cart
         cart_item, created = CartItem.objects.get_or_create(
@@ -376,9 +377,9 @@ def get_cart(cart_id: str = None) -> dict:
         return {
             'cart_id': str(cart.id),
             'items': items,
-            'total': float(cart.total),
-            'item_count': cart.item_count,
-            'free_shipping': cart.total >= 500,
+            'total': float(cart.subtotal),
+            'item_count': cart.total_items,
+            'free_shipping': cart.subtotal >= 500,
         }
 
     except Exception as e:
