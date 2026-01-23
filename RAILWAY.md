@@ -14,17 +14,97 @@
 ## Deployment Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│    Netlify      │     │    Railway      │
-│   (Frontend)    │────▶│   (Backend)     │
-│   Next.js 15    │     │   Django 5      │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                        ┌────────▼────────┐
-                        │ Railway Postgres │
-                        │  + pgvector     │
-                        └─────────────────┘
+┌─────────────────┐     ┌─────────────────────────────────────────┐
+│    Netlify      │     │              Railway                    │
+│   (Frontend)    │────▶│  ┌─────────┐  ┌─────────┐  ┌─────────┐ │
+│   Next.js 15    │     │  │   Web   │  │ Worker  │  │  Redis  │ │
+└─────────────────┘     │  │ Django  │  │ Celery  │  │         │ │
+                        │  └────┬────┘  └────┬────┘  └────┬────┘ │
+                        │       │            │            │      │
+                        │       └────────────┴────────────┘      │
+                        │                    │                    │
+                        │           ┌────────▼────────┐          │
+                        │           │    PostgreSQL   │          │
+                        │           │   + pgvector    │          │
+                        │           └─────────────────┘          │
+                        └─────────────────────────────────────────┘
 ```
+
+## Railway Services
+
+You should have these services in your Railway project:
+
+### 1. Web Service (Django)
+- **Source**: `backend/` directory
+- **Dockerfile**: Uses `backend/Dockerfile`
+- **Start command**: Runs `start.sh` which does migrations, embeddings, then gunicorn
+- **Port**: Uses `$PORT` env var (Railway sets this)
+- **Purpose**: Handles all HTTP requests - API, chat SSE streaming, webhooks
+
+### 2. Worker Service (Celery)
+- **Source**: Same `backend/` directory
+- **Start command**: `celery -A config worker -l info --concurrency=2`
+- **Purpose**: Background task processing (currently not heavily used, but available for async jobs)
+- **Depends on**: Redis
+
+### 3. PostgreSQL (Database)
+- **Type**: Railway addon
+- **Extension**: pgvector enabled for vector similarity search
+- **Auto-configured**: Railway sets `DATABASE_URL` automatically
+- **Contains**: All Django models - photos, orders, cart, chat conversations, etc.
+
+### 4. Redis
+- **Type**: Railway addon
+- **Purpose**: Celery message broker and result backend
+- **Auto-configured**: Railway sets `REDIS_URL` automatically
+- **Used by**: Celery worker for task queue
+
+## Service Dependencies
+
+```
+Web ──────┬──▶ PostgreSQL (DATABASE_URL)
+          └──▶ Redis (REDIS_URL) - for checking Celery status
+
+Worker ───┬──▶ PostgreSQL (DATABASE_URL)
+          └──▶ Redis (REDIS_URL) - task queue
+```
+
+## Setting Up Services in Railway
+
+1. **Create project** from GitHub repo
+2. **Add PostgreSQL** - Click "New" → "Database" → "PostgreSQL"
+3. **Add Redis** - Click "New" → "Database" → "Redis"
+4. **Web service** - Auto-created from Dockerfile, uses `backend/` as root
+5. **Worker service** (optional) - Click "New" → "Service" → same repo
+   - Set root directory to `backend/`
+   - Set start command to `celery -A config worker -l info --concurrency=2`
+
+## Environment Variables Per Service
+
+**All services need access to:**
+- `DATABASE_URL` (auto-set by PostgreSQL addon)
+- `REDIS_URL` (auto-set by Redis addon)
+
+**Web service specifically needs:**
+- All the API keys (Stripe, Anthropic, OpenAI, AWS)
+- `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`
+
+**Worker service needs:**
+- Same as web (shares env vars or copy them over)
+
+Railway's "Shared Variables" feature lets you define variables once and share across services.
+
+## Procfile vs Dockerfile
+
+The `Procfile` defines two processes:
+```
+web: python manage.py collectstatic --noinput && python manage.py migrate && gunicorn ...
+worker: celery -A config worker -l info --concurrency=2
+```
+
+But the **web** service uses `Dockerfile` which runs `start.sh` instead (more control).
+
+The **worker** service can use the Procfile's worker command directly, or you can set the start command manually in Railway.
 
 - **Frontend**: Netlify (auto-deploys from `frontend/` on push to main)
 - **Backend**: Railway (auto-deploys from `backend/` on push to main)
