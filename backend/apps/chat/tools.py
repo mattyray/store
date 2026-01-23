@@ -70,43 +70,96 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
 
         # Try vector search first if OpenAI is configured and photos have embeddings
         try:
+            from pgvector.django import CosineDistance
+
             has_embeddings = Photo.objects.filter(is_active=True, embedding__isnull=False).exists()
             if has_embeddings:
                 query_embedding = generate_query_embedding(query)
-                # Use pgvector to find similar photos if embeddings exist
+                # Use pgvector cosine distance - lower is more similar
                 photos = Photo.objects.filter(
                     is_active=True,
                     embedding__isnull=False
                 ).order_by(
-                    # Cosine distance - lower is more similar
-                )[:limit * 2]
+                    CosineDistance('embedding', query_embedding)
+                )[:limit]
         except Exception:
             # OpenAI unavailable or quota exceeded - fall back to text search
             pass
 
-        # Fall back to text-based search
+        # Fall back to text-based search with stricter matching
         if not photos or not photos.exists():
-            # Split query into words and match any word in any field
-            words = query.lower().split()
-            q_objects = Q()
-            for word in words:
-                if len(word) >= 3:  # Skip very short words
-                    q_objects |= (
-                        Q(ai_description__icontains=word) |
-                        Q(title__icontains=word) |
-                        Q(ai_mood__icontains=word) |
-                        Q(ai_subjects__icontains=word) |
-                        Q(description__icontains=word) |
-                        Q(location__icontains=word) |
-                        Q(slug__icontains=word) |
-                        Q(collection__name__icontains=word)
-                    )
-            if q_objects:
-                photos = Photo.objects.filter(q_objects).filter(is_active=True).distinct()[:limit]
+            # Common stop words to ignore
+            stop_words = {
+                'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+                'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
+                'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+                'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need',
+                'dare', 'ought', 'used', 'it', 'its', 'this', 'that', 'these', 'those',
+                'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
+                'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself',
+                'she', 'her', 'hers', 'herself', 'they', 'them', 'their', 'theirs',
+                'what', 'which', 'who', 'whom', 'when', 'where', 'why', 'how',
+                'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other', 'some',
+                'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too',
+                'very', 'just', 'also', 'now', 'here', 'there', 'then', 'once',
+                'photo', 'photos', 'picture', 'pictures', 'image', 'images', 'print',
+                'prints', 'art', 'artwork', 'looking', 'want', 'like', 'something',
+                'show', 'find', 'get', 'see', 'need', 'any', 'please', 'thanks',
+            }
 
-        # If still no results, just return some photos so the user sees something
+            # Common synonyms to expand search
+            synonyms = {
+                'relaxing': ['relaxing', 'calming', 'peaceful', 'serene', 'tranquil'],
+                'calm': ['calm', 'calming', 'peaceful', 'serene', 'tranquil'],
+                'peaceful': ['peaceful', 'calming', 'serene', 'tranquil'],
+                'ocean': ['ocean', 'sea', 'water', 'waves', 'coastal'],
+                'sea': ['sea', 'ocean', 'water', 'waves', 'coastal'],
+                'beach': ['beach', 'sand', 'shore', 'coastal', 'shoreline'],
+                'sunset': ['sunset', 'golden', 'dusk', 'evening'],
+                'sunrise': ['sunrise', 'dawn', 'morning'],
+                'dramatic': ['dramatic', 'striking', 'bold', 'intense'],
+                'blue': ['blue', 'azure', 'navy', 'cobalt', 'ocean blue', 'deep blue'],
+                'green': ['green', 'emerald', 'seafoam', 'verdant'],
+                'aerial': ['aerial', 'overhead', 'bird', 'drone', 'above'],
+                'asian': ['asian', 'asia', 'vietnam', 'cambodia', 'thai', 'pagoda', 'temple'],
+                'greek': ['greek', 'greece', 'santorini', 'mediterranean'],
+                'hamptons': ['hamptons', 'hampton', 'montauk', 'long island'],
+            }
+
+            # Extract meaningful search terms
+            words = query.lower().split()
+            search_terms = [w for w in words if len(w) >= 3 and w not in stop_words]
+
+            if search_terms:
+                # Use AND logic - all terms must match somewhere
+                # This prevents "asian photos" from matching everything with "photos"
+                q_combined = Q()
+                for word in search_terms:
+                    # Expand word to include synonyms
+                    words_to_search = synonyms.get(word, [word])
+
+                    # Build OR query for this term and its synonyms
+                    word_match = Q()
+                    for search_word in words_to_search:
+                        word_match |= (
+                            Q(ai_description__icontains=search_word) |
+                            Q(title__icontains=search_word) |
+                            Q(ai_mood__icontains=search_word) |
+                            Q(ai_subjects__icontains=search_word) |
+                            Q(description__icontains=search_word) |
+                            Q(location__icontains=search_word) |
+                            Q(slug__icontains=search_word) |
+                            Q(collection__name__icontains=search_word) |
+                            Q(ai_colors__icontains=search_word)
+                        )
+                    q_combined &= word_match  # AND logic between different search terms
+
+                photos = Photo.objects.filter(q_combined).filter(is_active=True).distinct()[:limit]
+
+        # Don't return random photos if nothing matches - let the agent know
+        # This is better UX than showing unrelated results
         if not photos or not photos.exists():
-            photos = Photo.objects.filter(is_active=True).order_by('?')[:limit]
+            return []
 
         results = []
         for photo in photos[:limit]:
