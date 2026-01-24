@@ -1,6 +1,38 @@
-from django.contrib import admin
+from datetime import timedelta
+
+from django.contrib import admin, messages
+from django.utils import timezone
 from django.utils.html import format_html
+
 from .models import WallAnalysis, SavedMockup
+
+
+@admin.action(description='Delete analyses older than 24 hours')
+def cleanup_old_analyses_24h(modeladmin, request, queryset):
+    cutoff = timezone.now() - timedelta(hours=24)
+    old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
+    count = old_analyses.count()
+    for analysis in old_analyses:
+        analysis.delete()  # Triggers django-cleanup to delete S3 files
+    messages.success(request, f'Deleted {count} analyses older than 24 hours.')
+
+
+@admin.action(description='Delete analyses older than 1 hour')
+def cleanup_old_analyses_1h(modeladmin, request, queryset):
+    cutoff = timezone.now() - timedelta(hours=1)
+    old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
+    count = old_analyses.count()
+    for analysis in old_analyses:
+        analysis.delete()
+    messages.success(request, f'Deleted {count} analyses older than 1 hour.')
+
+
+@admin.action(description='Delete ALL wall analyses')
+def cleanup_all_analyses(modeladmin, request, queryset):
+    count = WallAnalysis.objects.count()
+    for analysis in WallAnalysis.objects.all():
+        analysis.delete()
+    messages.success(request, f'Deleted all {count} wall analyses.')
 
 
 @admin.register(WallAnalysis)
@@ -10,6 +42,7 @@ class WallAnalysisAdmin(admin.ModelAdmin):
     readonly_fields = ['id', 'created_at', 'completed_at', 'original_width', 'original_height']
     search_fields = ['id', 'session_key']
     ordering = ['-created_at']
+    actions = [cleanup_old_analyses_1h, cleanup_old_analyses_24h, cleanup_all_analyses]
 
     def status_badge(self, obj):
         colors = {

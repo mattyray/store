@@ -1,11 +1,46 @@
 import logging
 import os
 import tempfile
+from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task
+def cleanup_old_wall_analyses(hours: int = 24):
+    """
+    Delete WallAnalysis records older than specified hours.
+
+    Django's storage backend automatically deletes the S3 files
+    when the model instance is deleted.
+
+    Args:
+        hours: Delete records older than this many hours (default 24)
+
+    Returns:
+        Number of records deleted
+    """
+    from .models import WallAnalysis
+
+    cutoff = timezone.now() - timedelta(hours=hours)
+    old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
+
+    count = old_analyses.count()
+    if count > 0:
+        # Delete one by one to ensure S3 files are cleaned up
+        # (bulk delete doesn't trigger file deletion)
+        for analysis in old_analyses:
+            try:
+                analysis.delete()
+            except Exception as e:
+                logger.error(f'Failed to delete WallAnalysis {analysis.id}: {e}')
+
+        logger.info(f'Cleaned up {count} old WallAnalysis records')
+
+    return count
 
 
 @shared_task(bind=True, soft_time_limit=30, time_limit=45)

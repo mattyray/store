@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     'apps.payments',
     'apps.mockup',
     'apps.chat',
+    # django-cleanup MUST be last (deletes files when models are deleted)
+    'django_cleanup.apps.CleanupConfig',
 ]
 
 MIDDLEWARE = [
