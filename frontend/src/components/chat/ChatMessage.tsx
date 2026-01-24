@@ -52,6 +52,84 @@ interface ChatMessageProps {
   message: Message;
 }
 
+// Mockup preview component with proper print positioning
+function MockupPreview({ mockup }: { mockup: MockupData }) {
+  const { analysis, photo, variant } = mockup;
+  const bounds = analysis.wall_bounds;
+
+  // Calculate print size relative to the wall
+  // Use pixels_per_inch to determine how big the print should appear
+  const ppi = analysis.pixels_per_inch || 50; // fallback
+  const printWidthPx = variant.width_inches * ppi;
+  const printHeightPx = variant.height_inches * ppi;
+
+  // Wall dimensions in pixels (from bounds)
+  const wallWidth = bounds.right - bounds.left;
+  const wallHeight = bounds.bottom - bounds.top;
+
+  // Calculate print size as percentage of container
+  // Assume image fills the container width, scale accordingly
+  const printWidthPercent = Math.min((printWidthPx / wallWidth) * 100, 80);
+
+  // Center the print horizontally within wall bounds, vertically centered
+  const wallCenterX = (bounds.left + bounds.right) / 2;
+  const wallCenterY = (bounds.top + bounds.bottom) / 2;
+
+  // These are approximate - would need image dimensions for perfect positioning
+  // For now, center in the detected wall area
+  const leftPercent = 50; // Center horizontally
+  const topPercent = 35; // Slightly above center (typical hanging height)
+
+  return (
+    <div className="mt-3 bg-white dark:bg-gray-700 rounded overflow-hidden">
+      <div className="relative aspect-[3/4] bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        {/* Wall/room image */}
+        <Image
+          src={analysis.wall_image_url}
+          alt="Your room"
+          fill
+          className="object-cover"
+          unoptimized
+        />
+        {/* Print overlay */}
+        <div
+          className="absolute z-10 bg-white p-1 shadow-2xl"
+          style={{
+            top: `${topPercent}%`,
+            left: `${leftPercent}%`,
+            transform: 'translate(-50%, -50%)',
+            width: `${printWidthPercent}%`,
+            maxWidth: '70%',
+          }}
+        >
+          <Image
+            src={photo.image_url}
+            alt={photo.title}
+            width={400}
+            height={300}
+            className="w-full h-auto"
+            unoptimized
+          />
+        </div>
+      </div>
+      <div className="p-3">
+        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
+          {photo.title}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {variant.size} - ${variant.price.toLocaleString()}
+        </p>
+        <Link
+          href={`/photos/${photo.slug}`}
+          className="mt-2 inline-block text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          View print details →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // Parse JSON block from message content to extract photos
 function parsePhotosFromContent(content: string): { cleanContent: string; photos: Photo[] } {
   const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"photos"[\s\S]*?\})\s*```/);
@@ -201,52 +279,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
 
         {/* Mockup preview */}
         {message.mockup && (
-          <div className="mt-3 bg-white dark:bg-gray-700 rounded overflow-hidden">
-            <div className="relative aspect-video bg-gray-100 dark:bg-gray-800">
-              {/* Wall image with print overlay */}
-              <Image
-                src={message.mockup.analysis.wall_image_url}
-                alt="Your room"
-                fill
-                className="object-contain"
-                unoptimized
-              />
-              {/* Print overlay - positioned based on wall bounds */}
-              <div
-                className="absolute"
-                style={{
-                  top: `${(message.mockup.analysis.wall_bounds.top / 100) * 50 + 25}%`,
-                  left: '50%',
-                  transform: 'translate(-50%, 0)',
-                  width: `${Math.min(message.mockup.variant.width_inches * 3, 60)}%`,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                }}
-              >
-                <Image
-                  src={message.mockup.photo.image_url}
-                  alt={message.mockup.photo.title}
-                  width={400}
-                  height={300}
-                  className="w-full h-auto"
-                  unoptimized
-                />
-              </div>
-            </div>
-            <div className="p-3">
-              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                {message.mockup.photo.title}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {message.mockup.variant.size} - ${message.mockup.variant.price.toLocaleString()}
-              </p>
-              <Link
-                href={`/photos/${message.mockup.photo.slug}`}
-                className="mt-2 inline-block text-xs text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                View print details →
-              </Link>
-            </div>
-          </div>
+          <MockupPreview mockup={message.mockup} />
         )}
       </div>
     </div>
