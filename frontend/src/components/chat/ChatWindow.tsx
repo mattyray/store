@@ -249,8 +249,13 @@ export default function ChatWindow({
                 }
               } else if (chunk.result && typeof chunk.result === 'object') {
                 const result = chunk.result as Record<string, unknown>;
+
+                // Handle mockup results
+                if (result.type === 'mockup' && result.success) {
+                  mockup = result as unknown as MockupData;
+                }
                 // Handle photo results
-                if (result.slug && result.title && (result.thumbnail_url || result.image_url)) {
+                else if (result.slug && result.title && (result.thumbnail_url || result.image_url)) {
                   photos.push({
                     slug: result.slug as string,
                     title: result.title as string,
@@ -278,7 +283,12 @@ export default function ChatWindow({
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMessageId
-                    ? { ...m, isStreaming: false, photos: photos.length > 0 ? photos : undefined }
+                    ? {
+                        ...m,
+                        isStreaming: false,
+                        photos: photos.length > 0 ? photos : undefined,
+                        mockup: mockup,
+                      }
                     : m
                 )
               );
