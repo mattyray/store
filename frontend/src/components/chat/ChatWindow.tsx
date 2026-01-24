@@ -5,6 +5,31 @@ import { streamChat, uploadChatImage, getChatHistory, type ChatChunk } from '@/l
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
+interface MockupData {
+  type: 'mockup';
+  analysis: {
+    id: string;
+    wall_image_url: string;
+    wall_bounds: { top: number; bottom: number; left: number; right: number };
+    pixels_per_inch: number;
+    confidence: number;
+  };
+  photo: {
+    slug: string;
+    title: string;
+    image_url: string;
+    thumbnail_url: string;
+  };
+  variant: {
+    id: number;
+    size: string;
+    width_inches: number;
+    height_inches: number;
+    price: number;
+  };
+  message: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -18,6 +43,7 @@ interface Message {
     url?: string;
     price_range?: { min: number; max: number };
   }>;
+  mockup?: MockupData;
   isStreaming?: boolean;
 }
 
@@ -176,6 +202,7 @@ export default function ChatWindow({
         let currentConversationId = conversationId;
         let accumulatedContent = '';
         const photos: Message['photos'] = [];
+        let mockup: MockupData | undefined;
 
         for await (const chunk of streamChat(
           content,

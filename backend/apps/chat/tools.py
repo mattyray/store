@@ -736,7 +736,8 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
     Generate a mockup showing a print on the analyzed wall.
 
     Use this after analyze_room_image to show how a specific print
-    would look in the customer's space.
+    would look in the customer's space. This tool will wait for the
+    wall analysis to complete if it's still processing.
 
     Args:
         analysis_id: The wall analysis ID from analyze_room_image
@@ -744,8 +745,10 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
         variant_id: The variant (size) to show
 
     Returns:
-        Mockup image URL or status
+        Mockup data with wall image and placement info, or error
     """
+    import time
+
     try:
         from apps.mockup.models import WallAnalysis
 
@@ -753,41 +756,62 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
         photo = Photo.objects.get(slug=photo_slug)
         variant = ProductVariant.objects.get(id=variant_id)
 
-        if analysis.status != 'completed':
+        # Wait for analysis to complete (poll for up to 30 seconds)
+        max_wait = 30
+        poll_interval = 1
+        waited = 0
+
+        while analysis.status in ('pending', 'processing') and waited < max_wait:
+            time.sleep(poll_interval)
+            waited += poll_interval
+            analysis.refresh_from_db()
+
+        # Check final status
+        if analysis.status == 'failed':
             return {
-                'status': analysis.status,
-                'message': 'Wall analysis is still processing. Please wait a moment.',
+                'error': 'Wall detection failed. Please try uploading a different room photo.',
+                'status': 'failed',
             }
 
-        # Return data needed for frontend to render mockup
+        if analysis.status not in ('completed', 'manual'):
+            return {
+                'error': 'Wall analysis timed out. Please try again.',
+                'status': analysis.status,
+            }
+
+        # Return mockup data for frontend rendering
         return {
             'success': True,
+            'type': 'mockup',  # Helps frontend identify this as mockup data
             'analysis': {
                 'id': str(analysis.id),
-                'wall_image': analysis.original_image.url if analysis.original_image else None,
+                'wall_image_url': get_absolute_url(analysis.original_image),
                 'wall_bounds': analysis.wall_bounds,
                 'pixels_per_inch': analysis.pixels_per_inch,
+                'confidence': analysis.confidence,
             },
             'photo': {
                 'slug': photo.slug,
                 'title': photo.title,
-                'image_url': photo.image.url,
+                'image_url': get_absolute_url(photo.image),
+                'thumbnail_url': get_absolute_url(photo.thumbnail) or get_absolute_url(photo.image),
             },
             'variant': {
                 'id': variant.id,
                 'size': variant.size,
                 'width_inches': variant.width_inches,
                 'height_inches': variant.height_inches,
+                'price': float(variant.price),
             },
-            'message': f'Here\'s how "{photo.title}" in {variant.size}" would look in your space!',
+            'message': f'Here\'s how "{photo.title}" ({variant.size}) would look in your space!',
         }
 
     except WallAnalysis.DoesNotExist:
-        return {'error': 'Wall analysis not found'}
+        return {'error': 'Wall analysis not found. Please upload a room photo first.'}
     except Photo.DoesNotExist:
-        return {'error': 'Photo not found'}
+        return {'error': f'Photo not found: {photo_slug}'}
     except ProductVariant.DoesNotExist:
-        return {'error': 'Variant not found'}
+        return {'error': f'Size/variant not found: {variant_id}'}
     except Exception as e:
         return {'error': str(e)}
 

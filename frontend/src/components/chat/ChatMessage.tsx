@@ -13,12 +13,38 @@ interface Photo {
   price_range?: { min: number; max: number };
 }
 
+interface MockupData {
+  type: 'mockup';
+  analysis: {
+    id: string;
+    wall_image_url: string;
+    wall_bounds: { top: number; bottom: number; left: number; right: number };
+    pixels_per_inch: number;
+    confidence: number;
+  };
+  photo: {
+    slug: string;
+    title: string;
+    image_url: string;
+    thumbnail_url: string;
+  };
+  variant: {
+    id: number;
+    size: string;
+    width_inches: number;
+    height_inches: number;
+    price: number;
+  };
+  message: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   imageUrl?: string;
   photos?: Photo[];
+  mockup?: MockupData;
   isStreaming?: boolean;
 }
 
@@ -170,6 +196,56 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                 +{allPhotos.length - 6} more
               </p>
             )}
+          </div>
+        )}
+
+        {/* Mockup preview */}
+        {message.mockup && (
+          <div className="mt-3 bg-white dark:bg-gray-700 rounded overflow-hidden">
+            <div className="relative aspect-video bg-gray-100 dark:bg-gray-800">
+              {/* Wall image with print overlay */}
+              <Image
+                src={message.mockup.analysis.wall_image_url}
+                alt="Your room"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+              {/* Print overlay - positioned based on wall bounds */}
+              <div
+                className="absolute"
+                style={{
+                  top: `${(message.mockup.analysis.wall_bounds.top / 100) * 50 + 25}%`,
+                  left: '50%',
+                  transform: 'translate(-50%, 0)',
+                  width: `${Math.min(message.mockup.variant.width_inches * 3, 60)}%`,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                }}
+              >
+                <Image
+                  src={message.mockup.photo.image_url}
+                  alt={message.mockup.photo.title}
+                  width={400}
+                  height={300}
+                  className="w-full h-auto"
+                  unoptimized
+                />
+              </div>
+            </div>
+            <div className="p-3">
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                {message.mockup.photo.title}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {message.mockup.variant.size} - ${message.mockup.variant.price.toLocaleString()}
+              </p>
+              <Link
+                href={`/photos/${message.mockup.photo.slug}`}
+                className="mt-2 inline-block text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View print details →
+              </Link>
+            </div>
           </div>
         )}
       </div>
