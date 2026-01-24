@@ -685,13 +685,30 @@ def analyze_room_image(image_url: str) -> dict:
         }
 
     try:
+        import requests
+        from io import BytesIO
+        from django.core.files.base import ContentFile
         from apps.mockup.models import WallAnalysis
         from apps.mockup.tasks import analyze_wall_image
 
-        # Create analysis record
-        analysis = WallAnalysis.objects.create(
-            original_image=image_url,
-            status='pending'
+        # Download image from URL
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
+
+        # Determine file extension from content type
+        content_type = response.headers.get('content-type', 'image/jpeg')
+        ext = 'jpg'
+        if 'png' in content_type:
+            ext = 'png'
+        elif 'webp' in content_type:
+            ext = 'webp'
+
+        # Create analysis record with downloaded image
+        analysis = WallAnalysis.objects.create(status='pending')
+        analysis.original_image.save(
+            f'room_{analysis.id}.{ext}',
+            ContentFile(response.content),
+            save=True
         )
 
         # Trigger async analysis

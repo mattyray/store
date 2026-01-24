@@ -119,8 +119,10 @@ def run_agent(
 
     # Add user message with optional image (only HTTPS URLs - Claude API requirement)
     if image_url and image_url.startswith('https://'):
+        # Include the URL in the text so Claude can pass it to analyze_room_image tool
+        text_with_url = f"{user_message}\n\n[Attached image URL: {image_url}]"
         messages.append(HumanMessage(content=[
-            {"type": "text", "text": user_message},
+            {"type": "text", "text": text_with_url},
             {"type": "image_url", "image_url": {"url": image_url}},
         ]))
     else:
