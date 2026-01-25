@@ -1,7 +1,7 @@
 # Matthew Raynor Photography Store - Project Context
 
 ## Overview
-E-commerce website for fine art photography prints. Sells photo prints (paper and aluminum), a photography book, and gift cards.
+E-commerce website for fine art photography prints targeting the Hamptons luxury art market. Sells photo prints (paper and aluminum), a photography book, and gift cards.
 
 **Live Site:** https://store.matthewraynor.com
 
@@ -13,13 +13,14 @@ E-commerce website for fine art photography prints. Sells photo prints (paper an
 |-------|------------|
 | Frontend | Next.js 15+ (App Router), TypeScript, Tailwind CSS |
 | Backend | Django 5, Django REST Framework |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 with pgvector |
 | Payments | Stripe Checkout |
 | Email | Resend SMTP |
 | Newsletter | MailerLite |
 | Media Storage | AWS S3 |
 | Frontend Hosting | Netlify (with `@netlify/plugin-nextjs`) |
-| Backend Hosting | Railway |
+| Backend Hosting | Railway (web + Celery worker + Redis) |
+| AI | Claude (chat agent), OpenAI (embeddings) |
 
 ---
 
@@ -32,44 +33,55 @@ store/
 │   │   ├── catalog/         # Collections, Photos, ProductVariants, Products
 │   │   ├── orders/          # Cart, CartItem, Order, OrderItem
 │   │   ├── core/            # Contact form, Newsletter, Gift Cards
-│   │   └── payments/        # Stripe webhooks, checkout
+│   │   ├── payments/        # Stripe webhooks, checkout, gift card redemption
+│   │   ├── chat/            # AI shopping agent (LangChain + Claude)
+│   │   └── mockup/          # "See in room" ML wall detection
 │   ├── config/
 │   │   └── settings/
 │   │       ├── base.py      # Shared settings
 │   │       ├── development.py
 │   │       └── production.py
-│   └── Dockerfile.bak
+│   ├── start.sh             # Production startup script
+│   ├── Dockerfile
+│   └── Procfile
 ├── frontend/                # Next.js App
 │   ├── src/
 │   │   ├── app/             # App Router pages
-│   │   │   ├── about/
-│   │   │   ├── book/
-│   │   │   ├── cart/
-│   │   │   ├── collections/
-│   │   │   ├── contact/
-│   │   │   ├── gift-cards/
-│   │   │   ├── order/
-│   │   │   ├── photos/
-│   │   │   ├── shipping/
-│   │   │   └── track-order/
 │   │   ├── components/      # Shared React components
 │   │   └── lib/
 │   │       └── api.ts       # API client functions
+│   ├── netlify.toml
 │   └── Dockerfile
 └── docker-compose.yml
 ```
 
 ---
 
+## Collections
+
+| Collection | Description |
+|------------|-------------|
+| Shots from the Sea | Commercial fishing era photography |
+| Travel Photography | Global destinations |
+| Aerial Photography | Drone perspectives of the East End |
+
+---
+
 ## Pricing
 
 ### Paper Prints (Matted, Open Edition)
+*Printed in-house on archival paper with acid-free matting*
+
 | Size | Mat Size | Price |
 |------|----------|-------|
 | 11x14 | 16x20 | $175 |
 | 13x19 | 18x24 | $250 |
 
+Ships within 5-7 business days.
+
 ### Aluminum Prints (Open Edition)
+*Dye-sublimated on premium aluminum. Scratch-resistant, UV-resistant, ready to hang.*
+
 | Size | Price |
 |------|-------|
 | 16x24 | $675 |
@@ -79,21 +91,19 @@ store/
 | 30x45 | $2,150 |
 | 40x60 | $3,400 |
 
+Ships within 14-21 business days (lab fulfilled).
+
+**Pricing Formula:** Retail = (Wholesale + Tax + Shipping) × 3.5
+
 ---
 
 ## Database Models
 
 ### Catalog App
-- **Collection** - Photo series/collections (e.g., "Montauk Sunsets")
-- **Photo** - Individual photographs with title, description, location, orientation, auto-captured image dimensions
+- **Collection** - Photo series/collections
+- **Photo** - Photographs with title, description, location, orientation, dimensions, embedding (pgvector)
 - **ProductVariant** - Purchasable options: size + material (paper/aluminum) + price
-- **Product** - Standalone products like books or merchandise
-
-### Photo Image Handling
-- Photos store `image_width` and `image_height` (auto-populated on save)
-- `aspect_ratio` property calculates actual ratio for accurate crop previews
-- Frontend uses real aspect ratio to display images without letterboxing
-- CropOverlay shows what will be cropped for each print size
+- **Product** - Standalone products like books
 
 ### Orders App
 - **Cart** - Session-based cart (UUID primary key)
@@ -103,7 +113,87 @@ store/
 
 ### Core App
 - **Subscriber** - Newsletter subscribers
-- **GiftCard** - Gift card codes and balances
+- **GiftCard** - Gift card codes, balances, expiration
+- **GiftCardRedemption** - Audit trail for gift card usage
+
+### Chat App
+- **Conversation** - Chat sessions with the AI agent
+- **Message** - Individual messages in conversations
+
+---
+
+## Gift Cards & Promotion Codes
+
+### Gift Cards
+- **Purchase**: Fixed amounts ($100, $250, $500, $1000, $2500)
+- **Check Balance**: `POST /api/gift-cards/check/`
+- **Redemption**: Applied at checkout as a Stripe coupon
+- Gift card balance is deducted after successful payment
+- Partial redemption supported (remaining balance stays on card)
+
+### Stripe Promotion Codes
+- Enabled at checkout when no gift card is applied
+- Promo codes created in Stripe Dashboard → Products → Coupons
+- **Note**: Stripe doesn't allow both gift card (coupon) and promo codes in the same session
+
+### Product Discounts
+- `Product.compare_at_price` - For showing "was $X, now $Y" (display only)
+
+---
+
+## Environment Variables
+
+### Backend
+```
+# Django
+SECRET_KEY=               # Django secret key
+DEBUG=False               # Must be False in production
+DJANGO_SETTINGS_MODULE=config.settings.production
+
+# Database (Railway provides DATABASE_URL automatically)
+DATABASE_URL=             # postgres://user:pass@host:port/dbname
+
+# AWS S3
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_STORAGE_BUCKET_NAME=
+AWS_S3_REGION_NAME=       # Default: us-east-1
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Email (Resend SMTP)
+EMAIL_HOST=               # Default: smtp.resend.com
+EMAIL_PORT=               # Default: 587
+EMAIL_HOST_USER=          # Default: resend
+EMAIL_HOST_PASSWORD=      # Resend API key
+DEFAULT_FROM_EMAIL=
+ADMIN_EMAIL=
+
+# Newsletter
+MAILERLITE_API_KEY=
+
+# CORS/Security
+ALLOWED_HOSTS=            # Comma-separated: your-app.railway.app,store-api.matthewraynor.com
+CORS_ALLOWED_ORIGINS=     # Comma-separated frontend URLs
+FRONTEND_URL=             # For Stripe redirects
+
+# Redis (for Celery)
+REDIS_URL=                # Railway Redis addon provides this
+
+# AI APIs
+ANTHROPIC_API_KEY=        # For Claude chat agent
+OPENAI_API_KEY=           # For embeddings (text-embedding-ada-002)
+```
+
+### Frontend (Netlify)
+```
+NEXT_PUBLIC_API_URL=      # Public API URL (browser requests)
+INTERNAL_API_URL=         # Internal URL (server-side, Docker: http://backend:7974/api)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+```
 
 ---
 
@@ -120,83 +210,23 @@ docker compose up
 ```
 
 **Services:**
-1. **db** - PostgreSQL 16 Alpine, auto-creates `photography_store` database
-2. **backend** - Runs migrations on startup, then `runserver` on port 7974
+1. **db** - PostgreSQL 16 Alpine with pgvector
+2. **backend** - Runs migrations on startup, then `runserver`
 3. **frontend** - Runs `npm run dev` with hot reload
-
-**Volumes:**
-- `postgres_data` - Database persistence
-- `static_volume` / `media_volume` - Django static/media files
-- Source code mounted for hot reload
-
-**Environment Variables in Docker:**
-- Backend reads from shell environment or defaults
-- Pass Stripe keys via: `STRIPE_SECRET_KEY=xxx docker compose up`
-
----
-
-## Environment Variables
-
-### Backend (.env)
-```
-# Django
-SECRET_KEY=               # Django secret key
-DEBUG=                    # True/False
-
-# Database
-DATABASE_URL=             # Full connection string (Railway provides this)
-# OR individual:
-DB_NAME=
-DB_USER=
-DB_PASSWORD=
-DB_HOST=
-DB_PORT=
-
-# AWS S3
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_STORAGE_BUCKET_NAME=
-AWS_S3_REGION_NAME=
-
-# Stripe
-STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-
-# Email (Resend)
-EMAIL_HOST_PASSWORD=      # Resend API key
-DEFAULT_FROM_EMAIL=
-ADMIN_EMAIL=
-
-# Newsletter
-MAILERLITE_API_KEY=
-
-# CORS/Security
-ALLOWED_HOSTS=
-CORS_ALLOWED_ORIGINS=
-FRONTEND_URL=
-```
-
-### Frontend
-```
-NEXT_PUBLIC_API_URL=      # Public API URL (browser requests)
-INTERNAL_API_URL=         # Internal URL (server-side requests, Docker: http://backend:7974/api)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
-```
+4. **redis** - For Celery task queue (optional locally)
 
 ---
 
 ## Important Technical Details
 
 ### Cross-Origin Cookies (Cart Persistence)
-The cart uses session-based cookies across domains:
 - Backend sets `SameSite=None; Secure` cookies
 - Frontend must include `credentials: 'include'` on all API calls
 - CORS must allow the frontend origin with credentials
 
 ### Next.js Image Optimization
-Images from S3 require `remotePatterns` in `next.config.js`:
 ```js
+// next.config.js
 images: {
   remotePatterns: [
     { protocol: 'https', hostname: '*.s3.*.amazonaws.com' },
@@ -205,67 +235,19 @@ images: {
 ```
 
 ### Dark Mode
-Uses Tailwind's `dark:` variants with `prefers-color-scheme` media query (no toggle). All components should include dark mode classes.
+Uses Tailwind's `dark:` variants with `prefers-color-scheme` media query (no toggle).
 
 ### Server vs Client Data Fetching
-- **Server Components** (default): Use `INTERNAL_API_URL` - direct service-to-service in Docker/Railway
-- **Client Components** (`'use client'`): Use `NEXT_PUBLIC_API_URL` - browser makes request
+- **Server Components**: Use `INTERNAL_API_URL` (service-to-service)
+- **Client Components**: Use `NEXT_PUBLIC_API_URL` (browser requests)
 
 ### Honeypot Spam Protection
-Contact form has a hidden honeypot field. If filled (by bots), form silently "succeeds" without sending.
+Contact form has hidden honeypot field. If filled by bots, form silently "succeeds" without sending.
 
----
-
-## Gift Cards & Discount Codes
-
-### Gift Cards
-- **Purchase**: Fixed amounts ($100, $250, $500, $1000, $2500)
-- **Check Balance**: `/api/gift-cards/check/`
-- **Status**: Purchase works, but redemption at checkout NOT yet implemented
-
-### Stripe Promotion Codes
-- **NOT currently implemented** in checkout
-- To enable: Add `allow_promotion_codes=True` to `stripe.checkout.Session.create()` in [backend/apps/payments/views.py](backend/apps/payments/views.py)
-- Promo codes must be created in Stripe Dashboard → Products → Coupons
-- Once enabled, customers can enter codes on Stripe's checkout page
-
-### Product Discounts
-- `Product.compare_at_price` - For showing "was $X, now $Y" (display only, not a code)
-
----
-
-## Deployment
-
-### Backend (Railway)
-- Deploys from `backend/` directory
-- Uses `Procfile` or Railway auto-detect
-- PostgreSQL addon for database
-- Set all environment variables in Railway dashboard
-
-### Frontend (Netlify)
-- Deploys from `frontend/` directory
-- Uses `@netlify/plugin-nextjs` for App Router support
-- Set environment variables in Netlify dashboard
-- Build command: `npm run build`
-
-### Manual Deploy Steps
-1. Push to GitHub
-2. Railway auto-deploys backend from main branch
-3. Netlify auto-deploys frontend from main branch
-
----
-
-## Common Issues & Fixes
-
-| Issue | Solution |
-|-------|----------|
-| Cart not persisting | Check CORS config, ensure `credentials: 'include'`, verify `SameSite=None` cookie |
-| S3 images 403 | Check bucket policy, CORS config on bucket, IAM permissions |
-| Next.js images broken | Add S3 domain to `remotePatterns` in `next.config.js` |
-| Dark mode text invisible | Add `dark:text-gray-100` (or similar) Tailwind classes |
-| Stripe webhook fails | Verify `STRIPE_WEBHOOK_SECRET`, check Railway logs |
-| CORS errors | Update `CORS_ALLOWED_ORIGINS` in backend settings |
-| 404 on page refresh (Netlify) | Netlify plugin should handle this; check `netlify.toml` |
+### Semantic Photo Search (pgvector)
+- Photos have embeddings generated via OpenAI `text-embedding-ada-002`
+- Chat agent uses cosine similarity to find photos matching user descriptions
+- Embeddings auto-generated on deploy via `start.sh`
 
 ---
 
@@ -282,18 +264,28 @@ Contact form has a hidden honeypot field. If filled (by bots), form silently "su
 | `/api/cart/add/` | POST | Add item to cart |
 | `/api/cart/update/` | POST | Update item quantity |
 | `/api/cart/remove/` | POST | Remove item |
-| `/api/checkout/create-session/` | POST | Create Stripe checkout |
+| `/api/checkout/create-session/` | POST | Create Stripe checkout (accepts `gift_card_code`) |
 | `/api/contact/` | POST | Submit contact form |
 | `/api/newsletter/subscribe/` | POST | Subscribe to newsletter |
 | `/api/gift-cards/purchase/` | POST | Purchase gift card |
 | `/api/gift-cards/check/` | POST | Check gift card balance |
+| `/api/chat/` | POST | AI chat agent (SSE streaming) |
+| `/api/mockup/analyze/` | POST | Upload wall image for ML analysis |
 | `/api/health/` | GET | Health check |
 
 ---
 
-## Git Workflow
-- User prefers to run git commands manually
-- Provide commit commands but don't execute push automatically
+## Common Issues & Fixes
+
+| Issue | Solution |
+|-------|----------|
+| Cart not persisting | Check CORS config, ensure `credentials: 'include'`, verify `SameSite=None` cookie |
+| S3 images 403 | Check bucket policy, CORS config on bucket, IAM permissions |
+| Next.js images broken | Add S3 domain to `remotePatterns` in `next.config.js` |
+| Dark mode text invisible | Add `dark:text-gray-100` (or similar) Tailwind classes |
+| Stripe webhook fails | Verify `STRIPE_WEBHOOK_SECRET`, check Railway logs |
+| CORS errors | Update `CORS_ALLOWED_ORIGINS` in backend settings |
+| Embeddings not generating | Check `OPENAI_API_KEY` is set |
 
 ---
 
@@ -310,26 +302,33 @@ Defined in `ProductVariant.DEFAULT_PRICING` - used by bulk create actions.
 
 ---
 
-## Current Status
+## Feature Status
 
 ### Completed
 - Stripe checkout integration
-- Gift card purchase system
+- Gift card purchase and redemption at checkout
+- Stripe promotion codes (when no gift card applied)
 - Newsletter subscription (MailerLite)
 - Contact form with honeypot spam protection
-- Dark mode fully supported
-- Image aspect ratio handling for accurate crop previews
+- Dark mode support
+- Image aspect ratio handling for crop previews
 - All collections and product pages
 - Cart functionality
 - Order confirmation emails
+- AI chat shopping agent
+- "See in room" wall mockup tool (ML-powered)
+- Semantic photo search (pgvector)
 
 ### Pre-Launch TODO
 - [ ] Configure sales tax (TaxJar/Avalara or manual NY collection)
+- [ ] Switch Stripe to live mode
 - [ ] Final content review
-- [ ] DNS/domain verification
 
 ### Future Enhancements
-- Gift card redemption at checkout (purchase works, redemption not implemented)
-- Stripe promotion codes (`allow_promotion_codes=True` in checkout)
 - Customer reviews/testimonials
-- "See in room" mockup tool
+- Filter by location/orientation
+
+---
+
+## Git Workflow
+User prefers to run git commands manually. Provide commit commands but don't execute push automatically.
