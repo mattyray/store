@@ -1,5 +1,34 @@
 # Railway Production Notes
 
+## Quick Reference - Common Commands
+
+```bash
+# SSH into production container
+railway ssh
+
+# Once inside the container:
+python manage.py shell -c "from apps.core.models import Subscriber; print(list(Subscriber.objects.values('email', 'mailerlite_id', 'subscribed_at')))"
+python manage.py shell -c "from apps.orders.models import Order; print(list(Order.objects.values('id', 'email', 'total', 'status', 'created_at').order_by('-created_at')[:10]))"
+python manage.py shell -c "from apps.core.models import GiftCard; print(list(GiftCard.objects.values('code', 'balance', 'is_active')))"
+python manage.py shell -c "from apps.catalog.models import Photo; print(f'Embeddings: {Photo.objects.filter(embedding__isnull=False).count()}/{Photo.objects.count()}')"
+
+# Regenerate AI data
+python manage.py generate_photo_embeddings
+python manage.py generate_photo_descriptions
+
+# View logs (run locally, not in SSH)
+railway logs
+railway logs --follow
+
+# Check env vars (run locally)
+railway variables
+railway variables | grep MAILERLITE
+```
+
+**Important:** `railway ssh` connects to the server. `railway run` runs locally with Railway's env vars.
+
+---
+
 ## Key Production Files
 
 | File | Purpose |
