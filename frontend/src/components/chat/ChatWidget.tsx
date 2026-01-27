@@ -63,6 +63,33 @@ export default function ChatWidget() {
         />
       )}
 
+      {/* Tooltip bubble */}
+      {showTooltip && !isOpen && (
+        <div className="fixed bottom-24 right-6 z-50 animate-fade-in">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl px-4 py-3 max-w-[220px]">
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              Need help finding the perfect print? Chat with me!
+            </p>
+            {/* Triangle pointer */}
+            <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white dark:bg-gray-800 rotate-45 shadow-xl" />
+            {/* Close button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTooltip(false);
+                localStorage.setItem('chat_tooltip_seen', 'true');
+              }}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+              aria-label="Dismiss"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -78,9 +105,12 @@ export default function ChatWidget() {
         `}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
+        {/* Pulse ring animation */}
+        <span className="absolute inset-0 rounded-full bg-gray-900 dark:bg-gray-100 animate-ping opacity-20" />
+
         {/* Chat icon */}
         <svg
-          className="w-6 h-6"
+          className="w-6 h-6 relative z-10"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -95,7 +125,7 @@ export default function ChatWidget() {
 
         {/* Unread indicator */}
         {hasUnread && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-20" />
         )}
       </button>
     </>
