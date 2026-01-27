@@ -183,9 +183,9 @@ export default function PhotoDetailPage() {
           {/* Selected Variant Details */}
           {selectedVariant && (
             <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{selectedVariant.display_name}</span>
-                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">${selectedVariant.price}</span>
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-medium text-gray-900 dark:text-gray-100 min-w-0">{selectedVariant.display_name}</span>
+                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex-shrink-0">${selectedVariant.price}</span>
               </div>
             </div>
           )}

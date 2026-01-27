@@ -731,7 +731,13 @@ def analyze_room_image(image_url: str) -> dict:
 
 
 @tool
-def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
+def generate_mockup(
+    analysis_id: str,
+    photo_slug: str,
+    size: str,
+    material: str = "aluminum",
+    variant_id: Optional[int] = None
+) -> dict:
     """
     Generate a mockup showing a print on the analyzed wall.
 
@@ -739,10 +745,16 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
     would look in the customer's space. This tool will wait for the
     wall analysis to complete if it's still processing.
 
+    IMPORTANT: Use the `size` and `material` parameters to specify the variant.
+    The size should match exactly what the customer requested (e.g., "20x30", "24x36", "40x60").
+    The material should be "aluminum" or "paper" based on what the customer wants.
+
     Args:
         analysis_id: The wall analysis ID from analyze_room_image
         photo_slug: The photo to place on the wall
-        variant_id: The variant (size) to show
+        size: The print size (e.g., "20x30", "24x36", "40x60" for aluminum, "11x14", "13x19" for paper)
+        material: The material type - "aluminum" (default) or "paper"
+        variant_id: (DEPRECATED) Optional variant ID - prefer using size and material instead
 
     Returns:
         Mockup data with wall image and placement info, or error
@@ -754,7 +766,47 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
 
         analysis = WallAnalysis.objects.get(id=analysis_id)
         photo = Photo.objects.get(slug=photo_slug)
-        variant = ProductVariant.objects.get(id=variant_id)
+
+        # Find variant by size and material (preferred), or by variant_id (fallback)
+        variant = None
+        if size and material:
+            # Normalize size format - handle both "20x30" and "30x20" formats
+            size_normalized = size.strip().lower()
+            # Try exact match first
+            variant = ProductVariant.objects.filter(
+                photo=photo,
+                material__iexact=material.strip(),
+                is_available=True
+            ).filter(
+                Q(size__icontains=size_normalized) |
+                Q(size__icontains='x'.join(size_normalized.split('x')[::-1]))  # Try reversed dimensions
+            ).first()
+
+            # If no match, try matching just the dimensions in either order
+            if not variant:
+                size_parts = size_normalized.replace('"', '').replace("'", '').split('x')
+                if len(size_parts) == 2:
+                    try:
+                        w, h = int(size_parts[0].strip()), int(size_parts[1].strip())
+                        # Find variant where dimensions match in either order
+                        for v in ProductVariant.objects.filter(photo=photo, material__iexact=material.strip(), is_available=True):
+                            if (v.width_inches == w and v.height_inches == h) or (v.width_inches == h and v.height_inches == w):
+                                variant = v
+                                break
+                    except ValueError:
+                        pass
+
+        # Fallback to variant_id if provided and size/material didn't find anything
+        if not variant and variant_id:
+            variant = ProductVariant.objects.get(id=variant_id)
+
+        if not variant:
+            # List available variants to help the agent
+            available = ProductVariant.objects.filter(photo=photo, is_available=True)
+            available_list = [f"{v.size} ({v.material})" for v in available]
+            return {
+                'error': f'Could not find a {material} variant in size {size} for "{photo.title}". Available options: {", ".join(available_list)}',
+            }
 
         # Wait for analysis to complete (poll for up to 30 seconds)
         max_wait = 30
