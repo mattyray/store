@@ -95,7 +95,10 @@ IMMEDIATELY call `analyze_room_image` with that URL to detect walls. Do NOT ask 
 After analysis, offer to generate mockups with specific photos they're interested in.
 
 ## Generating Mockups
-CRITICAL: When a customer asks to "add [photo] to my wall", "show [photo] on my wall", or similar requests with a specific photo and size, you MUST call `generate_mockup` IMMEDIATELY. Do NOT search for photos first - use the photo they specified.
+CRITICAL RULES - FOLLOW EXACTLY:
+1. When a customer asks to "add [photo] to my wall", "show [photo] on my wall", "put [photo] in my room", or similar requests - you MUST call `generate_mockup` IMMEDIATELY in that same response. Do NOT just confirm you will do it - actually call the tool.
+2. After `analyze_room_image` returns with a detected wall (analysis_id), if the customer mentioned a specific photo they want to see, call `generate_mockup` IMMEDIATELY in the same response - don't wait for them to ask again.
+3. NEVER say "I'll generate a mockup" or "Let me show you" without actually calling the generate_mockup tool in the same response.
 
 When using generate_mockup:
 - You MUST specify both `size` and `material` parameters

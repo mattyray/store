@@ -72,6 +72,14 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
   // Assume image fills the container width, scale accordingly
   const printWidthPercent = Math.min((printWidthPx / wallWidth) * 100, 80);
 
+  // Calculate mat border for paper prints
+  // Paper mat sizes: 11x14 in 16x20 mat, 13x19 in 18x24 mat
+  // Mat border is approximately 2.5" on each side
+  const matBorderInches = variant.material === 'paper' ? 2.5 : 0;
+  const matBorderPx = matBorderInches * ppi;
+  // Scale mat border relative to wall width (same as print scaling)
+  const matBorderPercent = (matBorderPx / wallWidth) * 100;
+
   // Center the print horizontally within wall bounds, vertically centered
   const wallCenterX = (bounds.left + bounds.right) / 2;
   const wallCenterY = (bounds.top + bounds.bottom) / 2;
@@ -80,6 +88,12 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
   // For now, center in the detected wall area
   const leftPercent = 50; // Center horizontally
   const topPercent = 35; // Slightly above center (typical hanging height)
+
+  // For paper prints, the outer container is the mat (print + border)
+  // For aluminum, it's just the print
+  const totalWidthPercent = variant.material === 'paper'
+    ? Math.min(printWidthPercent + (matBorderPercent * 2), 85)
+    : printWidthPercent;
 
   return (
     <div className="mt-3 bg-white dark:bg-gray-700 rounded overflow-hidden">
@@ -95,13 +109,15 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
         {/* Print overlay - paper prints get white mat border (visual mat effect), aluminum has no border */}
         {/* Only add white background/padding for paper material - aluminum is edge-to-edge */}
         <div
-          className={`absolute z-10 shadow-2xl ${variant.material === 'paper' ? 'bg-white p-2' : ''}`}
+          className={`absolute z-10 shadow-2xl ${variant.material === 'paper' ? 'bg-white' : ''}`}
           style={{
             top: `${topPercent}%`,
             left: `${leftPercent}%`,
             transform: 'translate(-50%, -50%)',
-            width: `${printWidthPercent}%`,
+            width: `${totalWidthPercent}%`,
             maxWidth: '70%',
+            // For paper prints, add padding proportional to the mat border
+            padding: variant.material === 'paper' ? `${matBorderPercent}%` : 0,
           }}
         >
           <Image
