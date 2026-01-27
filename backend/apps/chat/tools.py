@@ -799,6 +799,7 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
             'variant': {
                 'id': variant.id,
                 'size': variant.size,
+                'material': variant.material,
                 'width_inches': variant.width_inches,
                 'height_inches': variant.height_inches,
                 'price': float(variant.price),

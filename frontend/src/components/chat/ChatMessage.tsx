@@ -31,6 +31,7 @@ interface MockupData {
   variant: {
     id: number;
     size: string;
+    material: 'paper' | 'aluminum';
     width_inches: number;
     height_inches: number;
     price: number;
@@ -91,9 +92,9 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
           className="object-cover"
           unoptimized
         />
-        {/* Print overlay */}
+        {/* Print overlay - paper prints get white mat border, aluminum is edge-to-edge */}
         <div
-          className="absolute z-10 bg-white p-1 shadow-2xl"
+          className={`absolute z-10 shadow-2xl ${variant.material === 'paper' ? 'bg-white p-1' : ''}`}
           style={{
             top: `${topPercent}%`,
             left: `${leftPercent}%`,

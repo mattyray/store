@@ -282,21 +282,23 @@ export default function WallCanvas({
         </div>
       )}
 
-      {/* Remove button */}
-      <button
-        onClick={handleRemoveSelected}
-        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition opacity-80 hover:opacity-100"
-        title="Remove selected print"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Remove button - only show when there are prints */}
+      {prints.length > 0 && (
+        <button
+          onClick={handleRemoveSelected}
+          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg flex items-center gap-1"
+          title="Remove selected print"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
 
       {/* Instructions */}
       {canvasSize.width > 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-          Drag prints to reposition. Use corners to resize.
+        <p className="absolute bottom-2 left-2 right-2 text-xs text-gray-600 dark:text-gray-300 text-center bg-black/50 dark:bg-black/70 rounded px-2 py-1">
+          Drag prints to reposition. Use corners to resize.{prints.length > 0 && ' Tap print then ✕ to remove.'}
         </p>
       )}
     </div>
