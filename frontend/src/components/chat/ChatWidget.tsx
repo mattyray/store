@@ -7,6 +7,7 @@ export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Load conversation ID from localStorage on mount
   useEffect(() => {
@@ -23,10 +24,28 @@ export default function ChatWidget() {
     }
   }, [conversationId]);
 
-  // Clear unread when opening
+  // Show tooltip on first visit (after a short delay)
+  useEffect(() => {
+    const hasSeenTooltip = localStorage.getItem('chat_tooltip_seen');
+    if (!hasSeenTooltip && !isOpen) {
+      const timer = setTimeout(() => {
+        setShowTooltip(true);
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+          setShowTooltip(false);
+          localStorage.setItem('chat_tooltip_seen', 'true');
+        }, 8000);
+      }, 3000); // Show after 3 seconds on page
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Hide tooltip and mark as seen when chat opens
   useEffect(() => {
     if (isOpen) {
       setHasUnread(false);
+      setShowTooltip(false);
+      localStorage.setItem('chat_tooltip_seen', 'true');
     }
   }, [isOpen]);
 
