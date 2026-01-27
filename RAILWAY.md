@@ -27,6 +27,8 @@ railway variables | grep MAILERLITE
 
 **Important:** `railway ssh` connects to the server. `railway run` runs locally with Railway's env vars.
 
+
+
 ---
 
 ## Key Production Files
