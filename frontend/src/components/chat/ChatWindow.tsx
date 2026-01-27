@@ -23,6 +23,7 @@ interface MockupData {
   variant: {
     id: number;
     size: string;
+    material: 'paper' | 'aluminum';
     width_inches: number;
     height_inches: number;
     price: number;
