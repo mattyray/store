@@ -3,8 +3,8 @@
   publish = ".next"
 
 [build.environment]
-  NEXT_PUBLIC_API_URL = "https://store-production-385d.up.railway.app/api"
-  INTERNAL_API_URL = "https://store-production-385d.up.railway.app/api"
+  NEXT_PUBLIC_API_URL = "https://store-api.matthewraynor.com/api"
+  INTERNAL_API_URL = "https://store-api.matthewraynor.com/api"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
