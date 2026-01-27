@@ -31,6 +31,11 @@ Dye-sublimated on premium aluminum. Scratch-resistant, UV-resistant, ready to ha
 - Free shipping on orders over $500
 - Ships from Hampton Bays, NY
 
+## Gift Cards
+- Gift cards are available for purchase: $100, $250, $500, $1000, $2500
+- When a customer wants to check their gift card balance, use the `check_gift_card` tool with their code
+- Gift cards can be applied at checkout
+
 ## How to Help Customers
 
 ### When they're browsing:
