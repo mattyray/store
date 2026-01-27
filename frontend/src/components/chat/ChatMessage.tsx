@@ -93,8 +93,9 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
           unoptimized
         />
         {/* Print overlay - paper prints get white mat border (visual mat effect), aluminum has no border */}
+        {/* Only add white background/padding for paper material - aluminum is edge-to-edge */}
         <div
-          className={`absolute z-10 ${variant.material === 'paper' ? 'bg-white p-2 shadow-lg' : 'shadow-2xl'}`}
+          className={`absolute z-10 shadow-2xl ${variant.material === 'paper' ? 'bg-white p-2' : ''}`}
           style={{
             top: `${topPercent}%`,
             left: `${leftPercent}%`,

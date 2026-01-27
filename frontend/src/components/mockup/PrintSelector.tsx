@@ -33,13 +33,13 @@ export default function PrintSelector({
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Select Photo
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 sm:max-h-40 overflow-y-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-60 overflow-y-auto p-1">
           {photos.map((photo) => (
             <button
               key={photo.id}
               onClick={() => onSelectPhoto(photo)}
               className={`
-                relative aspect-square rounded overflow-hidden border-2 transition
+                relative w-full pb-[100%] rounded overflow-hidden border-2 transition
                 ${selectedPhoto?.id === photo.id
                   ? 'border-blue-500 ring-2 ring-blue-500/30'
                   : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
@@ -50,7 +50,8 @@ export default function PrintSelector({
                 src={photo.thumbnail || photo.image}
                 alt={photo.title}
                 fill
-                className="object-cover"
+                className="object-cover absolute inset-0"
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 20vw"
               />
             </button>
           ))}
