@@ -646,10 +646,10 @@ def check_gift_card(code: str) -> dict:
 
         return {
             'code': gift_card.code,
-            'balance': float(gift_card.balance),
-            'original_amount': float(gift_card.amount),
+            'balance': float(gift_card.remaining_balance),
+            'original_amount': float(gift_card.initial_amount),
             'is_active': gift_card.is_active,
-            'message': f'Gift card has a balance of ${gift_card.balance:.2f}',
+            'message': f'Gift card has a balance of ${gift_card.remaining_balance:.2f}',
         }
 
     except GiftCard.DoesNotExist:
