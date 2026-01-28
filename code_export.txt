@@ -1,5 +1,5 @@
 === STORE PROJECT CODE EXPORT ===
-Generated: Sun Jan 25 10:03:28 EST 2026
+Generated: Tue Jan 27 14:43:20 EST 2026
 
 ### BACKEND ###
 ================================================
@@ -240,9 +240,11 @@ MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
+SESSION_COOKIE_SAMESITE = 'Lax'  # Same-site cookies now that API is on same domain
+SESSION_COOKIE_DOMAIN = '.matthewraynor.com'  # Share cookies across subdomains
 CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'  # Allow cross-origin cookies
+CSRF_COOKIE_SAMESITE = 'Lax'  # Same-site cookies now that API is on same domain
+CSRF_COOKIE_DOMAIN = '.matthewraynor.com'  # Share cookies across subdomains
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
@@ -4729,10 +4731,10 @@ def check_gift_card(code: str) -> dict:
 
         return {
             'code': gift_card.code,
-            'balance': float(gift_card.balance),
-            'original_amount': float(gift_card.amount),
+            'balance': float(gift_card.remaining_balance),
+            'original_amount': float(gift_card.initial_amount),
             'is_active': gift_card.is_active,
-            'message': f'Gift card has a balance of ${gift_card.balance:.2f}',
+            'message': f'Gift card has a balance of ${gift_card.remaining_balance:.2f}',
         }
 
     except GiftCard.DoesNotExist:
@@ -4814,7 +4816,13 @@ def analyze_room_image(image_url: str) -> dict:
 
 
 @tool
-def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
+def generate_mockup(
+    analysis_id: str,
+    photo_slug: str,
+    size: str,
+    material: str = "aluminum",
+    variant_id: Optional[int] = None
+) -> dict:
     """
     Generate a mockup showing a print on the analyzed wall.
 
@@ -4822,10 +4830,16 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
     would look in the customer's space. This tool will wait for the
     wall analysis to complete if it's still processing.
 
+    IMPORTANT: Use the `size` and `material` parameters to specify the variant.
+    The size should match exactly what the customer requested (e.g., "20x30", "24x36", "40x60").
+    The material should be "aluminum" or "paper" based on what the customer wants.
+
     Args:
         analysis_id: The wall analysis ID from analyze_room_image
         photo_slug: The photo to place on the wall
-        variant_id: The variant (size) to show
+        size: The print size (e.g., "20x30", "24x36", "40x60" for aluminum, "11x14", "13x19" for paper)
+        material: The material type - "aluminum" (default) or "paper"
+        variant_id: (DEPRECATED) Optional variant ID - prefer using size and material instead
 
     Returns:
         Mockup data with wall image and placement info, or error
@@ -4837,7 +4851,47 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
 
         analysis = WallAnalysis.objects.get(id=analysis_id)
         photo = Photo.objects.get(slug=photo_slug)
-        variant = ProductVariant.objects.get(id=variant_id)
+
+        # Find variant by size and material (preferred), or by variant_id (fallback)
+        variant = None
+        if size and material:
+            # Normalize size format - handle both "20x30" and "30x20" formats
+            size_normalized = size.strip().lower()
+            # Try exact match first
+            variant = ProductVariant.objects.filter(
+                photo=photo,
+                material__iexact=material.strip(),
+                is_available=True
+            ).filter(
+                Q(size__icontains=size_normalized) |
+                Q(size__icontains='x'.join(size_normalized.split('x')[::-1]))  # Try reversed dimensions
+            ).first()
+
+            # If no match, try matching just the dimensions in either order
+            if not variant:
+                size_parts = size_normalized.replace('"', '').replace("'", '').split('x')
+                if len(size_parts) == 2:
+                    try:
+                        w, h = int(size_parts[0].strip()), int(size_parts[1].strip())
+                        # Find variant where dimensions match in either order
+                        for v in ProductVariant.objects.filter(photo=photo, material__iexact=material.strip(), is_available=True):
+                            if (v.width_inches == w and v.height_inches == h) or (v.width_inches == h and v.height_inches == w):
+                                variant = v
+                                break
+                    except ValueError:
+                        pass
+
+        # Fallback to variant_id if provided and size/material didn't find anything
+        if not variant and variant_id:
+            variant = ProductVariant.objects.get(id=variant_id)
+
+        if not variant:
+            # List available variants to help the agent
+            available = ProductVariant.objects.filter(photo=photo, is_available=True)
+            available_list = [f"{v.size} ({v.material})" for v in available]
+            return {
+                'error': f'Could not find a {material} variant in size {size} for "{photo.title}". Available options: {", ".join(available_list)}',
+            }
 
         # Wait for analysis to complete (poll for up to 30 seconds)
         max_wait = 30
@@ -4882,6 +4936,7 @@ def generate_mockup(analysis_id: str, photo_slug: str, variant_id: int) -> dict:
             'variant': {
                 'id': variant.id,
                 'size': variant.size,
+                'material': variant.material,
                 'width_inches': variant.width_inches,
                 'height_inches': variant.height_inches,
                 'price': float(variant.price),
@@ -5010,6 +5065,11 @@ Dye-sublimated on premium aluminum. Scratch-resistant, UV-resistant, ready to ha
 - Free shipping on orders over $500
 - Ships from Hampton Bays, NY
 
+## Gift Cards
+- Gift cards are available for purchase: $100, $250, $500, $1000, $2500
+- When a customer wants to check their gift card balance, use the `check_gift_card` tool with their code
+- Gift cards can be applied at checkout
+
 ## How to Help Customers
 
 ### When they're browsing:
@@ -5072,6 +5132,22 @@ If search_photos_semantic returns an empty list, it means no photos matched the 
 When a customer uploads an image, you will see both the image AND the image URL in brackets like [Attached image URL: https://...].
 IMMEDIATELY call `analyze_room_image` with that URL to detect walls. Do NOT ask for the URL - you already have it.
 After analysis, offer to generate mockups with specific photos they're interested in.
+
+## Generating Mockups
+CRITICAL RULES - FOLLOW EXACTLY:
+1. When a customer asks to "add [photo] to my wall", "show [photo] on my wall", "put [photo] in my room", or similar requests - you MUST call `generate_mockup` IMMEDIATELY in that same response. Do NOT just confirm you will do it - actually call the tool.
+2. After `analyze_room_image` returns with a detected wall (analysis_id), if the customer mentioned a specific photo they want to see, call `generate_mockup` IMMEDIATELY in the same response - don't wait for them to ask again.
+3. NEVER say "I'll generate a mockup" or "Let me show you" without actually calling the generate_mockup tool in the same response.
+
+When using generate_mockup:
+- You MUST specify both `size` and `material` parameters
+- For aluminum prints, use sizes like: "16x24", "20x30", "24x36", "30x40", "30x45", "40x60"
+- For paper prints, use sizes like: "11x14", "13x19"
+- The `material` parameter should be exactly "aluminum" or "paper"
+- If no material specified, default to "aluminum"
+- Example: generate_mockup(analysis_id="...", photo_slug="viking-pride", size="20x30", material="aluminum")
+- DO NOT guess variant IDs - always use the size and material parameters instead
+- IMPORTANT: If a room photo has already been analyzed (you have an analysis_id), use generate_mockup directly - don't analyze the room again
 
 Remember: You're not just answering questions - you're helping people find art they'll love for years to come. Be the helpful art consultant every customer deserves."""
 
@@ -5918,8 +5994,8 @@ FILE: frontend/netlify.toml
   publish = ".next"
 
 [build.environment]
-  NEXT_PUBLIC_API_URL = "https://store-production-385d.up.railway.app/api"
-  INTERNAL_API_URL = "https://store-production-385d.up.railway.app/api"
+  NEXT_PUBLIC_API_URL = "https://store-api.matthewraynor.com/api"
+  INTERNAL_API_URL = "https://store-api.matthewraynor.com/api"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -6472,7 +6548,7 @@ export interface MockupPrint {
 ================================================
 FILE: frontend/src/app/layout.tsx
 ================================================
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
@@ -6483,6 +6559,15 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "Matthew Raynor Photography | Fine Art Prints of the Hamptons",
@@ -7090,9 +7175,9 @@ export default function PhotoDetailPage() {
           {/* Selected Variant Details */}
           {selectedVariant && (
             <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{selectedVariant.display_name}</span>
-                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">${selectedVariant.price}</span>
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-medium text-gray-900 dark:text-gray-100 min-w-0">{selectedVariant.display_name}</span>
+                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex-shrink-0">${selectedVariant.price}</span>
               </div>
             </div>
           )}
@@ -8677,6 +8762,7 @@ export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Load conversation ID from localStorage on mount
   useEffect(() => {
@@ -8693,10 +8779,28 @@ export default function ChatWidget() {
     }
   }, [conversationId]);
 
-  // Clear unread when opening
+  // Show tooltip on first visit (after a short delay)
+  useEffect(() => {
+    const hasSeenTooltip = localStorage.getItem('chat_tooltip_seen');
+    if (!hasSeenTooltip && !isOpen) {
+      const timer = setTimeout(() => {
+        setShowTooltip(true);
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+          setShowTooltip(false);
+          localStorage.setItem('chat_tooltip_seen', 'true');
+        }, 8000);
+      }, 3000); // Show after 3 seconds on page
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Hide tooltip and mark as seen when chat opens
   useEffect(() => {
     if (isOpen) {
       setHasUnread(false);
+      setShowTooltip(false);
+      localStorage.setItem('chat_tooltip_seen', 'true');
     }
   }, [isOpen]);
 
@@ -8714,6 +8818,33 @@ export default function ChatWidget() {
         />
       )}
 
+      {/* Tooltip bubble */}
+      {showTooltip && !isOpen && (
+        <div className="fixed bottom-24 right-6 z-50 animate-fade-in">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl px-4 py-3 max-w-[220px]">
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              Need help finding the perfect print? Chat with me!
+            </p>
+            {/* Triangle pointer */}
+            <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white dark:bg-gray-800 rotate-45 shadow-xl" />
+            {/* Close button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTooltip(false);
+                localStorage.setItem('chat_tooltip_seen', 'true');
+              }}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+              aria-label="Dismiss"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -8729,9 +8860,12 @@ export default function ChatWidget() {
         `}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
       >
+        {/* Pulse ring animation */}
+        <span className="absolute inset-0 rounded-full bg-gray-900 dark:bg-gray-100 animate-ping opacity-20" />
+
         {/* Chat icon */}
         <svg
-          className="w-6 h-6"
+          className="w-6 h-6 relative z-10"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -8746,7 +8880,7 @@ export default function ChatWidget() {
 
         {/* Unread indicator */}
         {hasUnread && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full z-20" />
         )}
       </button>
     </>
@@ -8782,6 +8916,7 @@ interface MockupData {
   variant: {
     id: number;
     size: string;
+    material: 'paper' | 'aluminum';
     width_inches: number;
     height_inches: number;
     price: number;
@@ -9163,6 +9298,7 @@ interface MockupData {
   variant: {
     id: number;
     size: string;
+    material: 'paper' | 'aluminum';
     width_inches: number;
     height_inches: number;
     price: number;
@@ -9203,6 +9339,14 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
   // Assume image fills the container width, scale accordingly
   const printWidthPercent = Math.min((printWidthPx / wallWidth) * 100, 80);
 
+  // Calculate mat border for paper prints
+  // Paper mat sizes: 11x14 in 16x20 mat, 13x19 in 18x24 mat
+  // Mat border is approximately 2.5" on each side
+  const matBorderInches = variant.material === 'paper' ? 2.5 : 0;
+  const matBorderPx = matBorderInches * ppi;
+  // Scale mat border relative to wall width (same as print scaling)
+  const matBorderPercent = (matBorderPx / wallWidth) * 100;
+
   // Center the print horizontally within wall bounds, vertically centered
   const wallCenterX = (bounds.left + bounds.right) / 2;
   const wallCenterY = (bounds.top + bounds.bottom) / 2;
@@ -9211,6 +9355,12 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
   // For now, center in the detected wall area
   const leftPercent = 50; // Center horizontally
   const topPercent = 35; // Slightly above center (typical hanging height)
+
+  // For paper prints, the outer container is the mat (print + border)
+  // For aluminum, it's just the print
+  const totalWidthPercent = variant.material === 'paper'
+    ? Math.min(printWidthPercent + (matBorderPercent * 2), 85)
+    : printWidthPercent;
 
   return (
     <div className="mt-3 bg-white dark:bg-gray-700 rounded overflow-hidden">
@@ -9223,15 +9373,18 @@ function MockupPreview({ mockup }: { mockup: MockupData }) {
           className="object-cover"
           unoptimized
         />
-        {/* Print overlay */}
+        {/* Print overlay - paper prints get white mat border (visual mat effect), aluminum has no border */}
+        {/* Only add white background/padding for paper material - aluminum is edge-to-edge */}
         <div
-          className="absolute z-10 bg-white p-1 shadow-2xl"
+          className={`absolute z-10 shadow-2xl ${variant.material === 'paper' ? 'bg-white' : ''}`}
           style={{
             top: `${topPercent}%`,
             left: `${leftPercent}%`,
             transform: 'translate(-50%, -50%)',
-            width: `${printWidthPercent}%`,
+            width: `${totalWidthPercent}%`,
             maxWidth: '70%',
+            // For paper prints, add padding proportional to the mat border
+            padding: variant.material === 'paper' ? `${matBorderPercent}%` : 0,
           }}
         >
           <Image
@@ -10352,21 +10505,23 @@ export default function WallCanvas({
         </div>
       )}
 
-      {/* Remove button */}
-      <button
-        onClick={handleRemoveSelected}
-        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition opacity-80 hover:opacity-100"
-        title="Remove selected print"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Remove button - only show when there are prints */}
+      {prints.length > 0 && (
+        <button
+          onClick={handleRemoveSelected}
+          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg flex items-center gap-1"
+          title="Remove selected print"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
 
       {/* Instructions */}
       {canvasSize.width > 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-          Drag prints to reposition. Use corners to resize.
+        <p className="absolute bottom-2 left-2 right-2 text-xs text-gray-600 dark:text-gray-300 text-center bg-black/50 dark:bg-black/70 rounded px-2 py-1">
+          Drag prints to reposition. Use corners to resize.{prints.length > 0 && ' Tap print then ✕ to remove.'}
         </p>
       )}
     </div>

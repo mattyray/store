@@ -20,6 +20,7 @@ python manage.py generate_photo_descriptions
 railway logs
 railway logs --follow
 
+
 # Check env vars (run locally)
 railway variables
 railway variables | grep MAILERLITE
