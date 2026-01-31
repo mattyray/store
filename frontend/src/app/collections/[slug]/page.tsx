@@ -10,9 +10,22 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   try {
     const collection = await getCollection(slug);
+    const description = collection.description || `Explore the ${collection.name} collection.`;
     return {
       title: `${collection.name} | Matthew Raynor Photography`,
-      description: collection.description || `Explore the ${collection.name} collection.`,
+      description,
+      openGraph: {
+        title: `${collection.name} — Matthew Raynor Photography`,
+        description,
+        images: collection.cover_image ? [{ url: collection.cover_image, alt: collection.name }] : [],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${collection.name} — Matthew Raynor Photography`,
+        description,
+        images: collection.cover_image ? [collection.cover_image] : [],
+      },
     };
   } catch {
     return {
