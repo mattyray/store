@@ -107,14 +107,19 @@ def chat_stream(request):
     if not user_message and image_url:
         user_message = "Here's a photo of my room. Can you help me visualize how a print would look here?"
 
+    # Ensure session exists for ownership tracking
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
     # Get or create conversation
     if conversation_id:
         try:
             conversation = Conversation.objects.get(id=conversation_id)
         except (Conversation.DoesNotExist, ValueError):
-            conversation = Conversation.objects.create()
+            conversation = Conversation.objects.create(session_key=session_key)
     else:
-        conversation = Conversation.objects.create()
+        conversation = Conversation.objects.create(session_key=session_key)
 
     # Link cart to conversation if provided
     if cart_id and not conversation.cart_id:
@@ -214,11 +219,15 @@ def chat_history(request, conversation_id):
     """
     Get chat history for a conversation.
 
-    Returns all messages in the conversation.
+    Only returns messages if the requesting session owns the conversation.
     """
     try:
         conversation = Conversation.objects.get(id=conversation_id)
     except (Conversation.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Conversation not found'}, status=404)
+
+    # Ownership check: only the session that created the conversation can read it
+    if conversation.session_key and conversation.session_key != request.session.session_key:
         return JsonResponse({'error': 'Conversation not found'}, status=404)
 
     messages = []
