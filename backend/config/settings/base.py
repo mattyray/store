@@ -104,6 +104,8 @@ REST_FRAMEWORK = {
         'anon': '100/hour',           # General API: 100 requests/hour per IP
         'newsletter': '5/hour',        # Newsletter signup: 5/hour per IP
         'contact': '10/hour',          # Contact form: 10/hour per IP
+        'chat': '30/hour',            # AI chat: 30 requests/hour per IP
+        'uploads': '20/hour',          # File uploads: 20/hour per IP
     },
 }
 
