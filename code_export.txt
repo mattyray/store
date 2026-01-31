@@ -1,5 +1,5 @@
 === STORE PROJECT CODE EXPORT ===
-Generated: Tue Jan 27 14:43:20 EST 2026
+Generated: Sat Jan 31 13:46:44 EST 2026
 
 ### BACKEND ###
 ================================================
@@ -17,7 +17,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
+SECRET_KEY = os.environ['SECRET_KEY']  # No default — crash on startup if missing
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -111,6 +111,13 @@ REST_FRAMEWORK = {
         'anon': '100/hour',           # General API: 100 requests/hour per IP
         'newsletter': '5/hour',        # Newsletter signup: 5/hour per IP
         'contact': '10/hour',          # Contact form: 10/hour per IP
+        'chat': '30/hour',            # AI chat: 30 requests/hour per IP
+        'uploads': '20/hour',          # File uploads: 20/hour per IP
+        'checkout': '20/hour',         # Stripe checkout: 20/hour per IP
+        'gift_card': '10/hour',        # Gift card purchase: 10/hour per IP
+        'gift_card_check': '15/hour',  # Gift card balance check: 15/hour per IP
+        'order_lookup': '20/hour',     # Order lookup by session: 20/hour per IP
+        'order_tracking': '10/hour',   # Order tracking: 10/hour per IP
     },
 }
 
@@ -158,6 +165,16 @@ CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_TASK_SOFT_TIME_LIMIT = 30  # Soft timeout in seconds
 CELERY_TASK_TIME_LIMIT = 45  # Hard timeout in seconds
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-old-mockups': {
+        'task': 'apps.mockup.tasks.cleanup_old_wall_analyses',
+        'schedule': 60 * 60 * 6,  # Every 6 hours
+    },
+    'cleanup-stale-carts': {
+        'task': 'apps.orders.tasks.cleanup_stale_carts',
+        'schedule': 60 * 60 * 24,  # Daily
+    },
+}
 
 # AI Chat Agent
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
@@ -268,14 +285,22 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 
 
 def health_check(request):
     return JsonResponse({'status': 'ok'})
 
 
+def robots_txt(request):
+    return HttpResponse(
+        "User-agent: *\nDisallow: /\n",
+        content_type="text/plain",
+    )
+
+
 urlpatterns = [
+    path('robots.txt', robots_txt),
     path('admin/', admin.site.urls),
     path('api/health/', health_check),
     path('api/', include('apps.catalog.urls')),
@@ -411,7 +436,7 @@ class Collection(models.Model):
     cover_image = models.ImageField(upload_to='collections/', blank=True)
     is_limited_edition = models.BooleanField(default=False)
     display_order = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -464,8 +489,8 @@ class Photo(models.Model):
     date_taken = models.DateField(null=True, blank=True)
     image_width = models.PositiveIntegerField(null=True, blank=True, editable=False)
     image_height = models.PositiveIntegerField(null=True, blank=True, editable=False)
-    is_featured = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -620,8 +645,8 @@ class Product(models.Model):
     weight_oz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     stock_quantity = models.PositiveIntegerField(default=0)
     track_inventory = models.BooleanField(default=True)
-    is_featured = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
 
     # Book-specific fields
     author = models.CharField(max_length=200, blank=True)
@@ -1905,15 +1930,16 @@ class Order(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=20, unique=True, editable=False)
-    stripe_checkout_id = models.CharField(max_length=200, blank=True)
-    stripe_payment_intent = models.CharField(max_length=200, blank=True)
-    customer_email = models.EmailField()
+    stripe_checkout_id = models.CharField(max_length=200, blank=True, unique=True)
+    stripe_payment_intent = models.CharField(max_length=200, blank=True, db_index=True)
+    customer_email = models.EmailField(db_index=True)
     customer_name = models.CharField(max_length=200)
     shipping_address = models.JSONField(default=dict)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='pending'
+        default='pending',
+        db_index=True,
     )
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     shipping_cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)
@@ -1933,7 +1959,18 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.order_number:
-            self.order_number = self._generate_order_number()
+            from django.db import IntegrityError
+            # Retry up to 5 times if concurrent orders produce a collision
+            for attempt in range(5):
+                self.order_number = self._generate_order_number()
+                try:
+                    super().save(*args, **kwargs)
+                    return
+                except IntegrityError:
+                    if attempt == 4:
+                        raise
+                    self.order_number = ''  # Reset to regenerate
+                    continue
         super().save(*args, **kwargs)
 
     def _generate_order_number(self):
@@ -1977,17 +2014,17 @@ class OrderItem(models.Model):
         return 'variant' if self.variant else 'product'
 
     def save(self, *args, **kwargs):
-        if not self.item_title:
+        if self.item_title is None or self.item_title == '':
             if self.variant:
                 self.item_title = self.variant.photo.title
             elif self.product:
                 self.item_title = self.product.title
-        if not self.item_description:
+        if self.item_description is None or self.item_description == '':
             if self.variant:
                 self.item_description = self.variant.display_name
             elif self.product:
                 self.item_description = self.product.get_product_type_display()
-        if not self.total_price:
+        if self.total_price is None:
             self.total_price = self.unit_price * self.quantity
         super().save(*args, **kwargs)
 
@@ -1997,6 +2034,7 @@ FILE: backend/apps/orders/views.py
 ================================================
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.catalog.models import ProductVariant, Product
@@ -2006,7 +2044,6 @@ from .serializers import (
     CartItemSerializer,
     AddToCartSerializer,
     UpdateCartItemSerializer,
-    OrderSerializer,
 )
 
 
@@ -2017,7 +2054,11 @@ def get_or_create_cart(request):
 
     session_key = request.session.session_key
     cart, created = Cart.objects.get_or_create(session_key=session_key)
-    return cart
+    # Prefetch related objects to avoid N+1 queries during serialization
+    return Cart.objects.prefetch_related(
+        'items__variant__photo',
+        'items__product',
+    ).get(pk=cart.pk)
 
 
 class CartView(APIView):
@@ -2075,6 +2116,8 @@ class CartItemView(APIView):
             cart_item.quantity += quantity
             cart_item.save()
 
+        # Re-fetch with fresh prefetch cache after modification
+        cart = get_or_create_cart(request)
         return Response(
             CartSerializer(cart, context={'request': request}).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
@@ -2109,7 +2152,9 @@ class CartItemDetailView(APIView):
         cart_item.quantity = serializer.validated_data['quantity']
         cart_item.save()
 
-        return Response(CartSerializer(cart_item.cart, context={'request': request}).data)
+        # Re-fetch with prefetch for serialization
+        cart = get_or_create_cart(request)
+        return Response(CartSerializer(cart, context={'request': request}).data)
 
     def delete(self, request, item_id):
         """Remove item from cart."""
@@ -2120,16 +2165,22 @@ class CartItemDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        cart = cart_item.cart
         cart_item.delete()
 
+        # Re-fetch with prefetch for serialization
+        cart = get_or_create_cart(request)
         return Response(CartSerializer(cart, context={'request': request}).data)
+
+
+class OrderTrackingThrottle(AnonRateThrottle):
+    scope = 'order_tracking'
 
 
 class OrderTrackingView(APIView):
     """Look up order by order number and email for customers."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [OrderTrackingThrottle]
 
     def post(self, request):
         """Look up order status."""
@@ -2461,32 +2512,255 @@ class OrderAdmin(admin.ModelAdmin):
 
 
 ================================================
+FILE: backend/apps/orders/tasks.py
+================================================
+import logging
+from datetime import timedelta
+
+from celery import shared_task
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task
+def cleanup_stale_carts(days: int = 30):
+    """
+    Delete carts older than specified days that have no associated order.
+
+    Args:
+        days: Delete carts older than this many days (default 30)
+
+    Returns:
+        Number of carts deleted
+    """
+    from .models import Cart
+
+    cutoff = timezone.now() - timedelta(days=days)
+    stale_carts = Cart.objects.filter(
+        created_at__lt=cutoff,
+        updated_at__lt=cutoff,
+    )
+
+    count = stale_carts.count()
+    if count > 0:
+        stale_carts.delete()
+        logger.info(f'Cleaned up {count} stale carts older than {days} days')
+
+    return count
+
+
+================================================
+FILE: backend/apps/orders/emails.py
+================================================
+import resend
+from django.conf import settings
+from django.template.loader import render_to_string
+
+# Initialize Resend with API key
+resend.api_key = settings.RESEND_API_KEY
+
+
+def send_order_confirmation(order):
+    """Send order confirmation email to customer."""
+    subject = f"Order Confirmed - {order.order_number}"
+
+    # Build items with image URLs
+    items_with_images = []
+    for item in order.items.select_related('variant__photo', 'product'):
+        item_data = {
+            'item_title': item.item_title,
+            'item_description': item.item_description,
+            'quantity': item.quantity,
+            'total_price': item.total_price,
+            'image_url': None,
+        }
+        if item.variant and item.variant.photo and item.variant.photo.image:
+            item_data['image_url'] = item.variant.photo.image.url
+        elif item.product and item.product.image:
+            item_data['image_url'] = item.product.image.url
+        items_with_images.append(item_data)
+
+    context = {
+        'order': order,
+        'items': items_with_images,
+        'store_name': 'Matthew Raynor Photography',
+        'support_email': 'hello@matthewraynor.com',
+    }
+
+    html_message = render_to_string('emails/order_confirmation.html', context)
+    plain_message = render_to_string('emails/order_confirmation.txt', context)
+
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [order.customer_email],
+        "subject": subject,
+        "html": html_message,
+        "text": plain_message,
+    })
+
+    # Send admin notification
+    send_new_order_admin_notification(order, items_with_images)
+
+
+def send_new_order_admin_notification(order, items):
+    """Send notification to admin when new order is placed."""
+    subject = f"New Order: {order.order_number} - ${order.total}"
+
+    # Build simple text email for admin
+    items_text = "\n".join([
+        f"  - {item['item_title']} ({item['item_description']}) x{item['quantity']} = ${item['total_price']}"
+        for item in items
+    ])
+
+    addr = order.shipping_address
+    address_text = f"{addr.get('line1', '')}"
+    if addr.get('line2'):
+        address_text += f"\n  {addr.get('line2')}"
+    address_text += f"\n  {addr.get('city', '')}, {addr.get('state', '')} {addr.get('postal_code', '')}"
+
+    text_body = f"""New order received!
+
+Order: {order.order_number}
+Total: ${order.total}
+
+Customer: {order.customer_name}
+Email: {order.customer_email}
+
+Items:
+{items_text}
+
+Ship to:
+  {order.customer_name}
+  {address_text}
+
+View in admin: https://store-production-385d.up.railway.app/admin/orders/order/{order.id}/change/
+"""
+
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [settings.ADMIN_EMAIL],
+        "subject": subject,
+        "text": text_body,
+    })
+
+
+def send_shipping_notification(order, tracking_number=None, carrier=None):
+    """Send shipping notification email to customer."""
+    subject = f"Your Order Has Shipped - {order.order_number}"
+
+    # Build items with image URLs
+    items_with_images = []
+    for item in order.items.select_related('variant__photo', 'product'):
+        item_data = {
+            'item_title': item.item_title,
+            'item_description': item.item_description,
+            'quantity': item.quantity,
+            'total_price': item.total_price,
+            'image_url': None,
+        }
+        if item.variant and item.variant.photo and item.variant.photo.image:
+            item_data['image_url'] = item.variant.photo.image.url
+        elif item.product and item.product.image:
+            item_data['image_url'] = item.product.image.url
+        items_with_images.append(item_data)
+
+    context = {
+        'order': order,
+        'items': items_with_images,
+        'tracking_number': tracking_number,
+        'carrier': carrier,
+        'store_name': 'Matthew Raynor Photography',
+        'support_email': 'hello@matthewraynor.com',
+    }
+
+    html_message = render_to_string('emails/shipping_notification.html', context)
+    plain_message = render_to_string('emails/shipping_notification.txt', context)
+
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [order.customer_email],
+        "subject": subject,
+        "html": html_message,
+        "text": plain_message,
+    })
+
+
+def send_contact_form_notification(name, email, subject, message):
+    """Send contact form submission to admin."""
+    admin_subject = f"Contact Form: {subject}"
+
+    context = {
+        'name': name,
+        'email': email,
+        'subject': subject,
+        'message': message,
+    }
+
+    html_message = render_to_string('emails/contact_form.html', context)
+    plain_message = render_to_string('emails/contact_form.txt', context)
+
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [settings.ADMIN_EMAIL],
+        "subject": admin_subject,
+        "html": html_message,
+        "text": plain_message,
+    })
+
+    # Auto-reply to sender
+    resend.Emails.send({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [email],
+        "subject": "Thank you for contacting Matthew Raynor Photography",
+        "text": f"Hi {name},\n\nThank you for reaching out. I've received your message and will get back to you within 24-48 hours.\n\nBest,\nMatt",
+    })
+
+
+================================================
 FILE: backend/apps/payments/views.py
 ================================================
+import json
+import logging
 import stripe
 from decimal import Decimal
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
+from django.db.models import F
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.catalog.models import ProductVariant, Product
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
 from apps.core.models import GiftCard, GiftCardRedemption, Subscriber
 from apps.core.emails import send_gift_card_email, send_gift_card_purchase_confirmation
 
+logger = logging.getLogger(__name__)
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+class CheckoutThrottle(AnonRateThrottle):
+    scope = 'checkout'
+
+
+class OrderLookupThrottle(AnonRateThrottle):
+    scope = 'order_lookup'
 
 
 class CreateCheckoutSessionView(APIView):
     """Create a Stripe Checkout session for the current cart."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [CheckoutThrottle]
 
     def post(self, request):
         cart = get_or_create_cart(request)
@@ -2504,15 +2778,26 @@ class CreateCheckoutSessionView(APIView):
 
         if gift_card_code:
             try:
-                gift_card = GiftCard.objects.get(code=gift_card_code)
-                if not gift_card.is_valid:
-                    return Response(
-                        {'error': 'Gift card is no longer valid'},
-                        status=status.HTTP_400_BAD_REQUEST
+                with transaction.atomic():
+                    # Lock the gift card row to prevent concurrent checkouts
+                    # from both reading the full balance (double-spend)
+                    gift_card = GiftCard.objects.select_for_update().get(
+                        code=gift_card_code
                     )
-                # Calculate how much of the gift card to use
-                cart_total = cart.subtotal
-                gift_card_amount = min(gift_card.remaining_balance, cart_total)
+                    if not gift_card.is_valid:
+                        return Response(
+                            {'error': 'Gift card is no longer valid'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    # Reserve the amount by deducting now; refunded if
+                    # checkout expires without completing payment
+                    cart_total = cart.subtotal
+                    gift_card_amount = min(gift_card.remaining_balance, cart_total)
+                    if gift_card_amount > 0:
+                        gift_card.remaining_balance -= gift_card_amount
+                        if gift_card.remaining_balance == 0:
+                            gift_card.is_active = False
+                        gift_card.save(update_fields=['remaining_balance', 'is_active'])
             except GiftCard.DoesNotExist:
                 return Response(
                     {'error': 'Gift card not found'},
@@ -2520,6 +2805,7 @@ class CreateCheckoutSessionView(APIView):
                 )
 
         line_items = []
+        cart_snapshot = []
         for item in cart.items.select_related('variant__photo', 'product'):
             if item.variant:
                 line_items.append({
@@ -2536,6 +2822,10 @@ class CreateCheckoutSessionView(APIView):
                     },
                     'quantity': item.quantity,
                 })
+                cart_snapshot.append({
+                    't': 'v', 'id': item.variant.id,
+                    'q': item.quantity, 'p': str(item.variant.price),
+                })
             elif item.product:
                 line_items.append({
                     'price_data': {
@@ -2550,6 +2840,10 @@ class CreateCheckoutSessionView(APIView):
                         },
                     },
                     'quantity': item.quantity,
+                })
+                cart_snapshot.append({
+                    't': 'p', 'id': item.product.id,
+                    'q': item.quantity, 'p': str(item.product.price),
                 })
 
         try:
@@ -2566,6 +2860,7 @@ class CreateCheckoutSessionView(APIView):
                 'billing_address_collection': 'required',
                 'metadata': {
                     'cart_id': str(cart.id),
+                    'cart_snapshot': json.dumps(cart_snapshot),
                 },
             }
 
@@ -2594,8 +2889,9 @@ class CreateCheckoutSessionView(APIView):
             })
 
         except stripe.error.StripeError as e:
+            logger.error(f"Stripe error during checkout: {e}")
             return Response(
-                {'error': str(e)},
+                {'error': 'Payment processing error. Please try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -2615,8 +2911,13 @@ class StripeWebhookView(APIView):
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
         except ValueError:
+            logger.warning("Webhook received invalid payload")
             return HttpResponse(status=400)
         except stripe.error.SignatureVerificationError:
+            logger.warning(
+                f"Webhook signature verification failed from "
+                f"{request.META.get('REMOTE_ADDR')}"
+            )
             return HttpResponse(status=400)
 
         if event['type'] == 'checkout.session.completed':
@@ -2628,6 +2929,10 @@ class StripeWebhookView(APIView):
                 self.handle_gift_card_purchase(session)
             else:
                 self.handle_checkout_completed(session)
+
+        elif event['type'] == 'checkout.session.expired':
+            session = event['data']['object']
+            self.handle_checkout_expired(session)
 
         return HttpResponse(status=200)
 
@@ -2646,24 +2951,148 @@ class StripeWebhookView(APIView):
         shipping = session.get('shipping_details', {})
         address = shipping.get('address', {})
 
-        order = Order.objects.create(
-            stripe_checkout_id=session['id'],
-            stripe_payment_intent=session.get('payment_intent') or '',
-            customer_email=session.get('customer_details', {}).get('email', ''),
-            customer_name=shipping.get('name', ''),
-            shipping_address={
-                'line1': address.get('line1', ''),
-                'line2': address.get('line2', ''),
-                'city': address.get('city', ''),
-                'state': address.get('state', ''),
-                'postal_code': address.get('postal_code', ''),
-                'country': address.get('country', ''),
-            },
-            status='paid',
-            subtotal=cart.subtotal,
-            total=session.get('amount_total', 0) / 100,
+        # Wrap order creation, items, gift card redemption, and cart
+        # cleanup in a single transaction for data consistency.
+        # Idempotency check is inside the transaction so concurrent
+        # webhook retries can't both pass the check. The unique
+        # constraint on stripe_checkout_id is a secondary guard.
+        try:
+            with transaction.atomic():
+                # Idempotency: skip if we already processed this session
+                if Order.objects.filter(stripe_checkout_id=session['id']).exists():
+                    logger.info(f"Order already exists for session {session['id']}, skipping")
+                    return
+
+                order = Order.objects.create(
+                    stripe_checkout_id=session['id'],
+                    stripe_payment_intent=session.get('payment_intent') or '',
+                    customer_email=session.get('customer_details', {}).get('email', ''),
+                    customer_name=shipping.get('name', ''),
+                    shipping_address={
+                        'line1': address.get('line1', ''),
+                        'line2': address.get('line2', ''),
+                        'city': address.get('city', ''),
+                        'state': address.get('state', ''),
+                        'postal_code': address.get('postal_code', ''),
+                        'country': address.get('country', ''),
+                    },
+                    status='paid',
+                    subtotal=cart.subtotal,
+                    total=session.get('amount_total', 0) / 100,
+                )
+
+                # Use cart snapshot from metadata to ensure prices match what
+                # was charged. Fall back to live cart for older sessions.
+                snapshot_raw = metadata.get('cart_snapshot')
+                snapshot_items = json.loads(snapshot_raw) if snapshot_raw else None
+
+                if snapshot_items:
+                    self._create_order_items_from_snapshot(order, snapshot_items)
+                else:
+                    self._create_order_items_from_cart(order, cart)
+
+                # Gift card balance was already deducted at checkout creation
+                # time (with select_for_update to prevent double-spend).
+                # Here we just create the audit record.
+                gift_card_code = metadata.get('gift_card_code')
+                gift_card_amount = metadata.get('gift_card_amount')
+                if gift_card_code and gift_card_amount:
+                    try:
+                        gift_card = GiftCard.objects.get(code=gift_card_code)
+                        amount = Decimal(gift_card_amount)
+                        GiftCardRedemption.objects.create(
+                            gift_card=gift_card,
+                            order=order,
+                            amount=amount,
+                        )
+                    except GiftCard.DoesNotExist:
+                        logger.warning(f"Gift card {gift_card_code} not found during redemption")
+                    except Exception:
+                        logger.exception("Gift card redemption failed")
+
+                cart.items.all().delete()
+        except IntegrityError:
+            # Secondary guard: unique constraint on stripe_checkout_id
+            # catches races the exists() check can't
+            logger.info(f"Duplicate order prevented by unique constraint for session {session['id']}")
+            return
+
+        logger.info(
+            f"Order {order.order_number} created - "
+            f"${order.total} - {order.customer_email}"
         )
 
+        # Send confirmation email (outside transaction — don't rollback
+        # the order if email fails)
+        try:
+            send_order_confirmation(order)
+        except Exception:
+            logger.exception(f"Failed to send confirmation email for order {order.order_number}")
+
+        # Add customer to newsletter subscriber list
+        if order.customer_email:
+            try:
+                Subscriber.objects.get_or_create(
+                    email=order.customer_email.lower(),
+                    defaults={
+                        'name': order.customer_name,
+                        'source': 'purchase',
+                    }
+                )
+            except Exception:
+                pass
+
+    def _create_order_items_from_snapshot(self, order, snapshot_items):
+        """Create order items using the price snapshot from checkout time."""
+        for snap in snapshot_items:
+            quantity = snap['q']
+            price = Decimal(snap['p'])
+            total = price * quantity
+
+            if snap['t'] == 'v':
+                try:
+                    variant = ProductVariant.objects.select_related('photo').get(
+                        id=snap['id']
+                    )
+                    OrderItem.objects.create(
+                        order=order,
+                        variant=variant,
+                        item_title=variant.photo.title,
+                        item_description=variant.display_name,
+                        quantity=quantity,
+                        unit_price=price,
+                        total_price=total,
+                    )
+                except ProductVariant.DoesNotExist:
+                    logger.error(f"Variant {snap['id']} not found for order {order.order_number}")
+            elif snap['t'] == 'p':
+                try:
+                    product = Product.objects.get(id=snap['id'])
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        item_title=product.title,
+                        item_description=product.get_product_type_display(),
+                        quantity=quantity,
+                        unit_price=price,
+                        total_price=total,
+                    )
+                    # Atomic stock decrement to prevent race conditions
+                    if product.track_inventory:
+                        updated = Product.objects.filter(
+                            id=product.id,
+                            stock_quantity__gte=quantity,
+                        ).update(stock_quantity=F('stock_quantity') - quantity)
+                        if not updated:
+                            logger.warning(
+                                f"Insufficient stock for product {product.id} "
+                                f"(requested {quantity})"
+                            )
+                except Product.DoesNotExist:
+                    logger.error(f"Product {snap['id']} not found for order {order.order_number}")
+
+    def _create_order_items_from_cart(self, order, cart):
+        """Fallback: create order items from live cart (for older sessions without snapshot)."""
         for item in cart.items.select_related('variant__photo', 'product'):
             if item.variant:
                 OrderItem.objects.create(
@@ -2685,80 +3114,93 @@ class StripeWebhookView(APIView):
                     unit_price=item.product.price,
                     total_price=item.total_price,
                 )
-                # Decrement stock if tracking inventory
+                # Atomic stock decrement to prevent race conditions
                 if item.product.track_inventory:
-                    item.product.stock_quantity -= item.quantity
-                    item.product.save()
+                    updated = Product.objects.filter(
+                        id=item.product.id,
+                        stock_quantity__gte=item.quantity,
+                    ).update(stock_quantity=F('stock_quantity') - item.quantity)
+                    if not updated:
+                        logger.warning(
+                            f"Insufficient stock for product {item.product.id} "
+                            f"(requested {item.quantity})"
+                        )
 
-        # Redeem gift card if one was used
+    def handle_checkout_expired(self, session):
+        """Refund reserved gift card balance when a checkout session expires."""
+        metadata = session.get('metadata', {})
         gift_card_code = metadata.get('gift_card_code')
         gift_card_amount = metadata.get('gift_card_amount')
-        if gift_card_code and gift_card_amount:
+
+        if not gift_card_code or not gift_card_amount:
+            return
+
+        amount = Decimal(gift_card_amount)
+        with transaction.atomic():
             try:
-                gift_card = GiftCard.objects.get(code=gift_card_code)
-                amount = Decimal(gift_card_amount)
-                # Redeem the gift card and create redemption record
-                redeemed = gift_card.redeem(amount)
-                if redeemed > 0:
-                    GiftCardRedemption.objects.create(
-                        gift_card=gift_card,
-                        order=order,
-                        amount=redeemed,
-                    )
-            except (GiftCard.DoesNotExist, Exception):
-                pass  # Don't fail the order if gift card redemption fails
-
-        cart.items.all().delete()
-
-        # Send confirmation email
-        try:
-            send_order_confirmation(order)
-        except Exception:
-            pass  # Don't fail the order if email fails
-
-        # Add customer to newsletter subscriber list
-        if order.customer_email:
-            try:
-                Subscriber.objects.get_or_create(
-                    email=order.customer_email.lower(),
-                    defaults={
-                        'name': order.customer_name,
-                        'source': 'purchase',
-                    }
+                gift_card = GiftCard.objects.select_for_update().get(
+                    code=gift_card_code
                 )
-            except Exception:
-                pass  # Don't fail if subscriber creation fails
+                gift_card.remaining_balance += amount
+                gift_card.is_active = True
+                gift_card.save(update_fields=['remaining_balance', 'is_active'])
+                logger.info(
+                    f"Refunded ${amount} to gift card {gift_card.code} "
+                    f"after expired checkout session {session['id']}"
+                )
+            except GiftCard.DoesNotExist:
+                logger.warning(
+                    f"Gift card {gift_card_code} not found for expired session refund"
+                )
 
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
         metadata = session.get('metadata', {})
+        payment_intent = session.get('payment_intent', '')
+
+        # Idempotency: skip if we already created a gift card for this payment
+        if payment_intent and GiftCard.objects.filter(
+            stripe_payment_intent=payment_intent
+        ).exists():
+            logger.info(f"Gift card already exists for payment {payment_intent}, skipping")
+            return
 
         amount = Decimal(metadata.get('amount', '0'))
         if amount <= 0:
             return
 
-        gift_card = GiftCard.objects.create(
-            initial_amount=amount,
-            remaining_balance=amount,
-            purchaser_email=metadata.get('purchaser_email', ''),
-            purchaser_name=metadata.get('purchaser_name', ''),
-            recipient_email=metadata.get('recipient_email', ''),
-            recipient_name=metadata.get('recipient_name', ''),
-            message=metadata.get('message', ''),
-            stripe_payment_intent=session.get('payment_intent', ''),
+        try:
+            gift_card = GiftCard.objects.create(
+                initial_amount=amount,
+                remaining_balance=amount,
+                purchaser_email=metadata.get('purchaser_email', ''),
+                purchaser_name=metadata.get('purchaser_name', ''),
+                recipient_email=metadata.get('recipient_email', ''),
+                recipient_name=metadata.get('recipient_name', ''),
+                message=metadata.get('message', ''),
+                stripe_payment_intent=payment_intent,
+            )
+        except IntegrityError:
+            # Secondary guard: unique constraint on stripe_payment_intent
+            logger.info(f"Duplicate gift card prevented by unique constraint for payment {payment_intent}")
+            return
+
+        logger.info(
+            f"Gift card {gift_card.code} created - "
+            f"${amount} - recipient: {gift_card.recipient_email}"
         )
 
-        # Send emails
+        # Send emails (log failures instead of silently swallowing)
         try:
             send_gift_card_email(gift_card)
             gift_card.mark_sent()
         except Exception:
-            pass
+            logger.exception(f"Failed to send gift card email for {gift_card.code}")
 
         try:
             send_gift_card_purchase_confirmation(gift_card)
         except Exception:
-            pass
+            logger.exception(f"Failed to send purchase confirmation for gift card {gift_card.code}")
 
         # Add gift card purchaser to subscriber list
         if gift_card.purchaser_email:
@@ -2778,6 +3220,7 @@ class OrderLookupView(APIView):
     """Look up order by Stripe session ID."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [OrderLookupThrottle]
 
     def get(self, request):
         session_id = request.query_params.get('session_id')
@@ -2837,6 +3280,8 @@ class Subscriber(models.Model):
         ('popup', 'Popup'),
         ('checkout', 'Checkout'),
         ('homepage', 'Homepage'),
+        ('purchase', 'Purchase'),
+        ('gift_card_purchase', 'Gift Card Purchase'),
     ]
 
     email = models.EmailField(unique=True)
@@ -2885,7 +3330,7 @@ class GiftCard(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
 
     # Payment
-    stripe_payment_intent = models.CharField(max_length=200, blank=True)
+    stripe_payment_intent = models.CharField(max_length=200, blank=True, unique=True)
 
     class Meta:
         ordering = ['-purchased_at']
@@ -2924,6 +3369,12 @@ class GiftCard(models.Model):
         self.save()
         return redeemable
 
+    def mark_sent(self):
+        """Mark gift card as sent to recipient."""
+        self.is_sent = True
+        self.sent_at = timezone.now()
+        self.save(update_fields=['is_sent', 'sent_at'])
+
     @property
     def is_valid(self):
         if not self.is_active:
@@ -2950,22 +3401,22 @@ class GiftCardRedemption(models.Model):
 ================================================
 FILE: backend/apps/core/views.py
 ================================================
+import logging
+
 import stripe
-from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.orders.emails import send_contact_form_notification
 from .models import Subscriber, GiftCard
-from .emails import send_gift_card_email
 from .mailerlite import add_subscriber_to_mailerlite
+
+logger = logging.getLogger(__name__)
 
 
 class NewsletterThrottle(AnonRateThrottle):
@@ -2974,6 +3425,14 @@ class NewsletterThrottle(AnonRateThrottle):
 
 class ContactThrottle(AnonRateThrottle):
     scope = 'contact'
+
+
+class GiftCardThrottle(AnonRateThrottle):
+    scope = 'gift_card'
+
+
+class GiftCardCheckThrottle(AnonRateThrottle):
+    scope = 'gift_card_check'
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -2985,6 +3444,10 @@ class ContactFormView(APIView):
     throttle_classes = [ContactThrottle]
 
     def post(self, request):
+        # Honeypot: if this hidden field is filled, it's a bot
+        if request.data.get('website', ''):
+            return Response({'success': True, 'message': 'Message sent successfully'})
+
         name = request.data.get('name', '').strip()
         email = request.data.get('email', '').strip()
         subject = request.data.get('subject', '').strip()
@@ -3095,6 +3558,7 @@ class GiftCardPurchaseView(APIView):
     """Purchase a gift card."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [GiftCardThrottle]
 
     ALLOWED_AMOUNTS = [100, 250, 500, 1000, 2500]
 
@@ -3162,8 +3626,9 @@ class GiftCardPurchaseView(APIView):
             })
 
         except stripe.error.StripeError as e:
+            logger.error(f"Stripe error during gift card purchase: {e}")
             return Response(
-                {'error': str(e)},
+                {'error': 'Payment processing error. Please try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -3172,6 +3637,7 @@ class GiftCardCheckView(APIView):
     """Check gift card balance."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [GiftCardCheckThrottle]
 
     def post(self, request):
         code = request.data.get('code', '').strip().upper()
@@ -3188,7 +3654,7 @@ class GiftCardCheckView(APIView):
             if not gift_card.is_valid:
                 return Response({
                     'valid': False,
-                    'error': 'This gift card is no longer valid',
+                    'error': 'This gift card is not valid',
                 })
 
             return Response({
@@ -3198,10 +3664,11 @@ class GiftCardCheckView(APIView):
             })
 
         except GiftCard.DoesNotExist:
-            return Response(
-                {'error': 'Gift card not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            # Return same response as invalid to prevent code enumeration
+            return Response({
+                'valid': False,
+                'error': 'This gift card is not valid',
+            })
 
 
 ================================================
@@ -3411,6 +3878,12 @@ class Conversation(models.Model):
     """A chat conversation with a customer."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session_key = models.CharField(
+        max_length=40,
+        blank=True,
+        db_index=True,
+        help_text='Session key of the user who started this conversation'
+    )
     cart = models.ForeignKey(
         'orders.Cart',
         null=True,
@@ -3483,8 +3956,10 @@ Views for the AI chat agent.
 Provides SSE streaming endpoint for real-time chat responses.
 """
 import json
+import time
 import uuid
 
+from django.core.cache import cache
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -3492,6 +3967,33 @@ from django.conf import settings
 
 from .models import Conversation, Message
 from .agent import run_agent
+
+
+def _get_client_ip(request):
+    """Get client IP from request, accounting for proxies."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '')
+
+
+def _check_rate_limit(request, scope, max_requests, window_seconds):
+    """Simple rate limiter using Django cache. Returns (allowed, retry_after)."""
+    ip = _get_client_ip(request)
+    cache_key = f'throttle_{scope}_{ip}'
+    history = cache.get(cache_key, [])
+
+    now = time.time()
+    # Remove expired entries
+    history = [t for t in history if now - t < window_seconds]
+
+    if len(history) >= max_requests:
+        retry_after = int(window_seconds - (now - history[0]))
+        return False, retry_after
+
+    history.append(now)
+    cache.set(cache_key, history, window_seconds)
+    return True, 0
 
 
 def get_cart_id_from_request(request):
@@ -3533,6 +4035,15 @@ def chat_stream(request):
 
     Returns Server-Sent Events stream.
     """
+    # Rate limit: 30 chat requests per hour per IP
+    allowed, retry_after = _check_rate_limit(request, 'chat', 30, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many requests. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     body = parse_json_body(request)
 
     user_message = body.get('message', '').strip()
@@ -3548,14 +4059,19 @@ def chat_stream(request):
     if not user_message and image_url:
         user_message = "Here's a photo of my room. Can you help me visualize how a print would look here?"
 
+    # Ensure session exists for ownership tracking
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
     # Get or create conversation
     if conversation_id:
         try:
             conversation = Conversation.objects.get(id=conversation_id)
         except (Conversation.DoesNotExist, ValueError):
-            conversation = Conversation.objects.create()
+            conversation = Conversation.objects.create(session_key=session_key)
     else:
-        conversation = Conversation.objects.create()
+        conversation = Conversation.objects.create(session_key=session_key)
 
     # Link cart to conversation if provided
     if cart_id and not conversation.cart_id:
@@ -3603,6 +4119,15 @@ def chat_sync(request):
 
     Same input as chat_stream, but returns complete response as JSON.
     """
+    # Rate limit: shares the same 'chat' scope as streaming endpoint
+    allowed, retry_after = _check_rate_limit(request, 'chat', 30, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many requests. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     from .agent import run_agent_sync
 
     body = parse_json_body(request)
@@ -3615,14 +4140,19 @@ def chat_sync(request):
     image_url = body.get('image_url')
     cart_id = body.get('cart_id') or get_cart_id_from_request(request)
 
+    # Ensure session exists for ownership tracking
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
     # Get or create conversation
     if conversation_id:
         try:
             conversation = Conversation.objects.get(id=conversation_id)
         except (Conversation.DoesNotExist, ValueError):
-            conversation = Conversation.objects.create()
+            conversation = Conversation.objects.create(session_key=session_key)
     else:
-        conversation = Conversation.objects.create()
+        conversation = Conversation.objects.create(session_key=session_key)
 
     try:
         response_text = run_agent_sync(
@@ -3646,11 +4176,15 @@ def chat_history(request, conversation_id):
     """
     Get chat history for a conversation.
 
-    Returns all messages in the conversation.
+    Only returns messages if the requesting session owns the conversation.
     """
     try:
         conversation = Conversation.objects.get(id=conversation_id)
     except (Conversation.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Conversation not found'}, status=404)
+
+    # Ownership check: only the session that created the conversation can read it
+    if conversation.session_key and conversation.session_key != request.session.session_key:
         return JsonResponse({'error': 'Conversation not found'}, status=404)
 
     messages = []
@@ -3680,6 +4214,15 @@ def upload_chat_image(request):
     Accepts multipart form with 'image' file.
     Returns the URL of the uploaded image.
     """
+    # Rate limit: 20 uploads per hour per IP
+    allowed, retry_after = _check_rate_limit(request, 'uploads', 20, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many uploads. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     if 'image' not in request.FILES:
         return JsonResponse({'error': 'No image provided'}, status=400)
 
@@ -3799,13 +4342,12 @@ Uses Claude as the LLM with tool-calling capabilities.
 """
 import json
 import uuid
-from typing import Generator, Any
+from typing import Generator
 
 from django.conf import settings
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from .prompts import SYSTEM_PROMPT
 from .tools import ALL_TOOLS
@@ -3819,14 +4361,22 @@ def get_llm():
         anthropic_api_key=settings.ANTHROPIC_API_KEY,
         streaming=True,
         max_tokens=4096,
+        timeout=30,
     )
 
 
-def build_message_history(conversation: Conversation) -> list:
-    """Convert database messages to LangChain message format."""
+def build_message_history(conversation: Conversation, max_messages: int = 50) -> list:
+    """Convert database messages to LangChain message format.
+
+    Limits history to the most recent messages to control token usage.
+    """
     messages = []
 
-    for msg in conversation.messages.all():
+    # Limit to the most recent messages to avoid sending huge context to the LLM
+    db_messages = conversation.messages.order_by('-created_at')[:max_messages]
+    db_messages = list(reversed(db_messages))  # Restore chronological order
+
+    for msg in db_messages:
         if msg.role == 'user':
             content = msg.content
             # Handle images in user messages (only HTTPS URLs - Claude API requirement)
@@ -3849,6 +4399,16 @@ def build_message_history(conversation: Conversation) -> list:
     return messages
 
 
+def sanitize_tool_result(result: str, max_length: int = 50000) -> str:
+    """Sanitize tool results to mitigate prompt injection from stored data.
+
+    Truncates excessively large results and strips common injection patterns.
+    """
+    if len(result) > max_length:
+        result = result[:max_length] + '... (truncated)'
+    return result
+
+
 def execute_tool(tool_name: str, tool_args: dict, cart_id: str = None) -> str:
     """Execute a tool by name with the given arguments."""
     # Find the tool function
@@ -3867,7 +4427,8 @@ def execute_tool(tool_name: str, tool_args: dict, cart_id: str = None) -> str:
 
     try:
         result = tool_func.invoke(tool_args)
-        return json.dumps(result) if not isinstance(result, str) else result
+        raw = json.dumps(result) if not isinstance(result, str) else result
+        return sanitize_tool_result(raw)
     except Exception as e:
         return json.dumps({'error': str(e)})
 
@@ -4090,7 +4651,6 @@ Each tool is a function the agent can call to take actions
 like searching photos, managing cart, generating mockups, etc.
 """
 from typing import Optional
-from decimal import Decimal
 
 from django.conf import settings
 from django.db.models import Q
@@ -4105,7 +4665,7 @@ from apps.core.models import GiftCard
 
 def get_openai_client():
     """Get OpenAI client for embeddings."""
-    return OpenAI(api_key=settings.OPENAI_API_KEY)
+    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=10)
 
 
 def get_absolute_url(file_field):
@@ -4164,7 +4724,7 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                 photos = Photo.objects.filter(
                     is_active=True,
                     embedding__isnull=False
-                ).order_by(
+                ).select_related('collection').prefetch_related('variants').order_by(
                     CosineDistance('embedding', query_embedding)
                 )[:limit]
         except Exception:
@@ -4239,7 +4799,9 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                         )
                     q_combined &= word_match  # AND logic between different search terms
 
-                photos = Photo.objects.filter(q_combined).filter(is_active=True).distinct()[:limit]
+                photos = Photo.objects.filter(q_combined).filter(
+                    is_active=True
+                ).select_related('collection').prefetch_related('variants').distinct()[:limit]
 
         # Don't return random photos if nothing matches - let the agent know
         # This is better UX than showing unrelated results
@@ -4298,7 +4860,9 @@ def search_photos_filter(
         List of matching photos with details
     """
     try:
-        photos = Photo.objects.filter(is_active=True)
+        photos = Photo.objects.filter(is_active=True).select_related(
+            'collection'
+        ).prefetch_related('variants')
 
         if collection:
             photos = photos.filter(collection__slug__iexact=collection)
@@ -4404,7 +4968,11 @@ def get_collections() -> list:
         List of all active collections with descriptions
     """
     try:
-        collections = Collection.objects.filter(is_active=True).order_by('display_order')
+        from django.db.models import Count, Q
+
+        collections = Collection.objects.filter(is_active=True).annotate(
+            active_photo_count=Count('photos', filter=Q(photos__is_active=True))
+        ).order_by('display_order')
 
         results = []
         for c in collections:
@@ -4412,7 +4980,7 @@ def get_collections() -> list:
                 'slug': c.slug,
                 'name': c.name,
                 'description': c.description,
-                'photo_count': c.photo_count,
+                'photo_count': c.active_photo_count,
             })
 
         return results
@@ -4445,12 +5013,15 @@ def add_to_cart(photo_slug: str, variant_id: int, quantity: int = 1, cart_id: st
     try:
         variant = ProductVariant.objects.get(id=variant_id, is_available=True)
 
-        # Get or create cart
-        import uuid
-        if cart_id:
-            cart, _ = Cart.objects.get_or_create(id=cart_id, defaults={'session_key': str(uuid.uuid4())})
-        else:
-            cart = Cart.objects.create(session_key=str(uuid.uuid4()))
+        if not cart_id:
+            return {'error': 'No cart available. Please refresh the page and try again.'}
+
+        try:
+            cart = Cart.objects.prefetch_related(
+                'items__variant__photo', 'items__product'
+            ).get(id=cart_id)
+        except Cart.DoesNotExist:
+            return {'error': 'Cart not found. Please refresh the page and try again.'}
 
         # Check if item already in cart
         cart_item, created = CartItem.objects.get_or_create(
@@ -4495,7 +5066,9 @@ def get_cart(cart_id: str = None) -> dict:
             return {'items': [], 'total': 0, 'item_count': 0}
 
         try:
-            cart = Cart.objects.get(id=cart_id)
+            cart = Cart.objects.prefetch_related(
+                'items__variant__photo', 'items__product'
+            ).get(id=cart_id)
         except Cart.DoesNotExist:
             return {'items': [], 'total': 0, 'item_count': 0}
 
@@ -4508,7 +5081,7 @@ def get_cart(cart_id: str = None) -> dict:
                     'variant': item.variant.display_name,
                     'price': float(item.variant.price),
                     'quantity': item.quantity,
-                    'subtotal': float(item.subtotal),
+                    'subtotal': float(item.total_price),
                 })
             elif item.product:
                 items.append({
@@ -4516,7 +5089,7 @@ def get_cart(cart_id: str = None) -> dict:
                     'product_title': item.product.title,
                     'price': float(item.product.price),
                     'quantity': item.quantity,
-                    'subtotal': float(item.subtotal),
+                    'subtotal': float(item.total_price),
                 })
 
         return {
@@ -4547,7 +5120,9 @@ def remove_from_cart(item_id: int, cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
         item = CartItem.objects.get(id=item_id, cart=cart)
         item_name = str(item)
         item.delete()
@@ -4582,7 +5157,9 @@ def update_cart_item(item_id: int, quantity: int, cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
         item = CartItem.objects.get(id=item_id, cart=cart)
 
         if quantity <= 0:
@@ -4628,7 +5205,9 @@ def start_checkout(cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
 
         if cart.total_items == 0:
             return {'error': 'Cart is empty'}
@@ -4679,15 +5258,13 @@ def track_order(order_number: str = None, email: str = None) -> dict:
     try:
         from apps.orders.models import Order
 
-        if not order_number and not email:
-            return {'error': 'Please provide an order number or email address'}
+        if not order_number or not email:
+            return {'error': 'Please provide both an order number and email address to look up an order'}
 
-        orders = Order.objects.all()
-
-        if order_number:
-            orders = orders.filter(order_number__iexact=order_number)
-        if email:
-            orders = orders.filter(email__iexact=email)
+        orders = Order.objects.filter(
+            order_number__iexact=order_number,
+            customer_email__iexact=email,
+        )
 
         if not orders.exists():
             return {'error': 'No orders found with that information'}
@@ -4729,18 +5306,22 @@ def check_gift_card(code: str) -> dict:
     try:
         gift_card = GiftCard.objects.get(code__iexact=code.strip())
 
+        if not gift_card.is_valid:
+            # Return same generic message as web endpoint to prevent
+            # enumeration of valid vs invalid/expired codes
+            return {'valid': False, 'error': 'This gift card is not valid'}
+
         return {
-            'code': gift_card.code,
+            'valid': True,
             'balance': float(gift_card.remaining_balance),
-            'original_amount': float(gift_card.initial_amount),
-            'is_active': gift_card.is_active,
             'message': f'Gift card has a balance of ${gift_card.remaining_balance:.2f}',
         }
 
     except GiftCard.DoesNotExist:
-        return {'error': 'Gift card not found. Please check the code and try again.'}
-    except Exception as e:
-        return {'error': str(e)}
+        # Same message as valid-but-expired to prevent code enumeration
+        return {'valid': False, 'error': 'This gift card is not valid'}
+    except Exception:
+        return {'valid': False, 'error': 'This gift card is not valid'}
 
 
 # ============================================================================
@@ -4769,14 +5350,18 @@ def analyze_room_image(image_url: str) -> dict:
             'suggestion': 'Tell me your wall width and I can recommend the perfect print size.',
         }
 
+    # SSRF protection: only fetch images from our own S3 bucket
+    allowed_domain = settings.AWS_S3_CUSTOM_DOMAIN
+    if allowed_domain and not image_url.startswith(f'https://{allowed_domain}/'):
+        return {'error': 'Invalid image URL. Please upload your room photo using the upload button.'}
+
     try:
         import requests
-        from io import BytesIO
         from django.core.files.base import ContentFile
         from apps.mockup.models import WallAnalysis
         from apps.mockup.tasks import analyze_wall_image
 
-        # Download image from URL
+        # Download image from our S3 bucket
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
 
@@ -4844,8 +5429,6 @@ def generate_mockup(
     Returns:
         Mockup data with wall image and placement info, or error
     """
-    import time
-
     try:
         from apps.mockup.models import WallAnalysis
 
@@ -4893,27 +5476,20 @@ def generate_mockup(
                 'error': f'Could not find a {material} variant in size {size} for "{photo.title}". Available options: {", ".join(available_list)}',
             }
 
-        # Wait for analysis to complete (poll for up to 30 seconds)
-        max_wait = 30
-        poll_interval = 1
-        waited = 0
+        # Refresh to check current status without blocking
+        analysis.refresh_from_db()
 
-        while analysis.status in ('pending', 'processing') and waited < max_wait:
-            time.sleep(poll_interval)
-            waited += poll_interval
-            analysis.refresh_from_db()
-
-        # Check final status
         if analysis.status == 'failed':
             return {
                 'error': 'Wall detection failed. Please try uploading a different room photo.',
                 'status': 'failed',
             }
 
-        if analysis.status not in ('completed', 'manual'):
+        if analysis.status in ('pending', 'processing'):
             return {
-                'error': 'Wall analysis timed out. Please try again.',
-                'status': analysis.status,
+                'status': 'processing',
+                'analysis_id': str(analysis.id),
+                'message': 'Wall analysis is still processing. The mockup tool on the page will show the result when ready. Please let the customer know to check the "See In Your Room" tool.',
             }
 
         # Return mockup data for frontend rendering
@@ -5179,7 +5755,7 @@ class WallAnalysis(models.Model):
     original_height = models.PositiveIntegerField(null=True, blank=True)
 
     # Processing status
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
     error_message = models.TextField(blank=True)
 
     # ML Results (populated after processing)
@@ -5279,14 +5855,17 @@ FILE: backend/apps/mockup/views.py
 import base64
 import logging
 import uuid
-from io import BytesIO
 
 from django.core.files.base import ContentFile
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+
+
+class UploadRateThrottle(AnonRateThrottle):
+    scope = 'uploads'
 
 logger = logging.getLogger(__name__)
 
@@ -5304,6 +5883,7 @@ class UploadWallImageView(APIView):
     parser_classes = [MultiPartParser]
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [UploadRateThrottle]
 
     def post(self, request):
         image = request.FILES.get('image')
@@ -5714,8 +6294,8 @@ def cleanup_old_wall_analyses(hours: int = 24):
     """
     Delete WallAnalysis records older than specified hours.
 
-    Django's storage backend automatically deletes the S3 files
-    when the model instance is deleted.
+    Deletes SavedMockup records individually first to ensure their S3 files
+    are cleaned up (cascade SQL DELETE skips Django's file deletion).
 
     Args:
         hours: Delete records older than this many hours (default 24)
@@ -5723,15 +6303,28 @@ def cleanup_old_wall_analyses(hours: int = 24):
     Returns:
         Number of records deleted
     """
-    from .models import WallAnalysis
+    from .models import WallAnalysis, SavedMockup
 
     cutoff = timezone.now() - timedelta(hours=hours)
-    old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
+    # Exclude analyses that have saved mockups (shared links should persist)
+    old_analyses = WallAnalysis.objects.filter(
+        created_at__lt=cutoff,
+        saved_mockups__isnull=True,
+    )
 
     count = old_analyses.count()
     if count > 0:
-        # Delete one by one to ensure S3 files are cleaned up
-        # (bulk delete doesn't trigger file deletion)
+        # Delete SavedMockups individually first so their S3 files are cleaned up
+        # (cascade SQL DELETE doesn't trigger Django storage file deletion)
+        mockups = SavedMockup.objects.filter(wall_analysis__in=old_analyses)
+        for mockup in mockups:
+            try:
+                mockup.mockup_image.delete(save=False)
+                mockup.delete()
+            except Exception as e:
+                logger.error(f'Failed to delete SavedMockup {mockup.id}: {e}')
+
+        # Delete WallAnalysis records one by one to clean up their S3 files
         for analysis in old_analyses:
             try:
                 analysis.delete()
@@ -5910,9 +6503,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
-    // Allow Docker internal network images in development
-    dangerouslyAllowSVG: true,
-    contentDispositionType: 'attachment',
     // Disable private IP blocking for local Docker development
     unoptimized: process.env.NODE_ENV === 'development',
     // Enable optimization - serves WebP/AVIF at appropriate sizes
@@ -6445,9 +7035,12 @@ export interface CartItem {
 }
 
 export interface Cart {
+  id: string;
   items: CartItem[];
+  total_items: number;
   subtotal: string;
-  item_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Order {
@@ -6554,6 +7147,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ChatWidget } from "@/components/chat";
+import { CartProvider } from "@/contexts/CartContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -6563,9 +7157,6 @@ const inter = Inter({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  minimumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 
@@ -6573,6 +7164,19 @@ export const metadata: Metadata = {
   title: "Matthew Raynor Photography | Fine Art Prints of the Hamptons",
   description: "Museum-quality fine art photography prints of the Hamptons. Limited edition aluminum and archival paper prints.",
   keywords: ["Hamptons photography", "fine art prints", "beach photography", "landscape photography", "Matthew Raynor"],
+  openGraph: {
+    title: "Matthew Raynor Photography",
+    description: "Museum-quality fine art photography prints of the Hamptons. Limited edition aluminum and archival paper prints.",
+    url: "https://store.matthewraynor.com",
+    siteName: "Matthew Raynor Photography",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Matthew Raynor Photography",
+    description: "Museum-quality fine art photography prints of the Hamptons.",
+  },
 };
 
 export default function RootLayout({
@@ -6582,13 +7186,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased bg-white text-gray-900`}>
-        <Header />
-        <main className="min-h-screen">
-          {children}
-        </main>
-        <Footer />
-        <ChatWidget />
+      <body className={`${inter.variable} font-sans antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
+        <CartProvider>
+          <Header />
+          <main className="min-h-screen">
+            {children}
+          </main>
+          <Footer />
+          <ChatWidget />
+        </CartProvider>
       </body>
     </html>
   );
@@ -6676,7 +7282,7 @@ export default async function HomePage() {
                   href={`/collections/${collection.slug}`}
                   className="group block"
                 >
-                  <div className="relative aspect-[3/2] overflow-hidden bg-gray-200 rounded-sm">
+                  <div className="relative aspect-[3/2] overflow-hidden bg-gray-200 dark:bg-gray-700 rounded-sm">
                     {collection.cover_image ? (
                       <Image
                         src={collection.cover_image}
@@ -6774,7 +7380,7 @@ export default async function CollectionsPage() {
       </div>
 
       {collections.length === 0 ? (
-        <p className="text-center text-gray-500">No collections available yet.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No collections available yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {collections.map((collection) => (
@@ -6783,7 +7389,7 @@ export default async function CollectionsPage() {
               href={`/collections/${collection.slug}`}
               className="group block"
             >
-              <div className="relative aspect-[16/9] overflow-hidden bg-gray-200 rounded">
+              <div className="relative aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700 rounded">
                 {collection.cover_image ? (
                   <Image
                     src={collection.cover_image}
@@ -6835,9 +7441,22 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   try {
     const collection = await getCollection(slug);
+    const description = collection.description || `Explore the ${collection.name} collection.`;
     return {
       title: `${collection.name} | Matthew Raynor Photography`,
-      description: collection.description || `Explore the ${collection.name} collection.`,
+      description,
+      openGraph: {
+        title: `${collection.name} — Matthew Raynor Photography`,
+        description,
+        images: collection.cover_image ? [{ url: collection.cover_image, alt: collection.name }] : [],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${collection.name} — Matthew Raynor Photography`,
+        description,
+        images: collection.cover_image ? [collection.cover_image] : [],
+      },
     };
   } catch {
     return {
@@ -6861,17 +7480,17 @@ export default async function CollectionPage({ params }: Props) {
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">{collection.name}</h1>
         {collection.description && (
-          <p className="text-gray-600 max-w-2xl mx-auto">{collection.description}</p>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">{collection.description}</p>
         )}
         {collection.is_limited_edition && (
-          <span className="inline-block mt-4 px-3 py-1 bg-gray-900 text-white text-sm rounded">
+          <span className="inline-block mt-4 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm rounded">
             Limited Edition
           </span>
         )}
       </div>
 
       {collection.photos?.length === 0 ? (
-        <p className="text-center text-gray-500">No photos in this collection yet.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No photos in this collection yet.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {collection.photos?.map((photo) => (
@@ -6928,7 +7547,7 @@ export default function PhotosPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">Shop All Prints</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Browse our complete collection of fine art photography prints.
         </p>
       </div>
@@ -6938,7 +7557,7 @@ export default function PhotosPage() {
         <select
           value={filters.orientation}
           onChange={(e) => setFilters({ ...filters, orientation: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Orientations</option>
           <option value="horizontal">Horizontal</option>
@@ -6949,7 +7568,7 @@ export default function PhotosPage() {
         <select
           value={filters.material}
           onChange={(e) => setFilters({ ...filters, material: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Materials</option>
           <option value="paper">Archival Paper</option>
@@ -6959,7 +7578,7 @@ export default function PhotosPage() {
         <select
           value={filters.ordering}
           onChange={(e) => setFilters({ ...filters, ordering: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="-created_at">Newest First</option>
           <option value="created_at">Oldest First</option>
@@ -6971,10 +7590,10 @@ export default function PhotosPage() {
 
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+          <div className="inline-block w-8 h-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-600 dark:border-t-gray-100 rounded-full animate-spin" />
         </div>
       ) : photos.length === 0 ? (
-        <p className="text-center text-gray-500">No photos found.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No photos found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {photos.map((photo) => (
@@ -6990,249 +7609,58 @@ export default function PhotosPage() {
 ================================================
 FILE: frontend/src/app/photos/[slug]/page.tsx
 ================================================
-'use client';
+import { notFound } from 'next/navigation';
+import { getPhoto } from '@/lib/api';
+import PhotoDetailClient from './PhotoDetailClient';
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { getPhoto, addToCart } from '@/lib/api';
-import type { Photo, ProductVariant } from '@/types';
-import CropOverlay from '@/components/CropOverlay';
-import { MockupTool } from '@/components/mockup';
+interface Props {
+  params: Promise<{ slug: string }>;
+}
 
-export default function PhotoDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const slug = params.slug as string;
+export async function generateMetadata({ params }: Props) {
+  const { slug } = await params;
+  try {
+    const photo = await getPhoto(slug);
+    const priceRange = photo.price_range
+      ? `From $${photo.price_range.min}`
+      : '';
+    const description = photo.description
+      || `${photo.title} — fine art photography print by Matthew Raynor. ${photo.location}. ${priceRange}`.trim();
 
-  const [photo, setPhoto] = useState<Photo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [message, setMessage] = useState('');
-  const [showMockupTool, setShowMockupTool] = useState(false);
-
-  useEffect(() => {
-    const fetchPhoto = async () => {
-      try {
-        const data = await getPhoto(slug);
-        setPhoto(data);
-        // Select first available variant by default
-        const firstAvailable = data.variants?.find((v) => v.is_available);
-        if (firstAvailable) setSelectedVariant(firstAvailable);
-      } catch (error) {
-        console.error('Failed to fetch photo:', error);
-      } finally {
-        setLoading(false);
-      }
+    return {
+      title: `${photo.title} | Matthew Raynor Photography`,
+      description,
+      openGraph: {
+        title: `${photo.title} — Fine Art Print`,
+        description,
+        images: photo.image ? [{ url: photo.image, alt: photo.title }] : [],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${photo.title} — Fine Art Print`,
+        description,
+        images: photo.image ? [photo.image] : [],
+      },
     };
+  } catch {
+    return {
+      title: 'Photo Not Found | Matthew Raynor Photography',
+    };
+  }
+}
 
-    fetchPhoto();
-  }, [slug]);
+export default async function PhotoDetailPage({ params }: Props) {
+  const { slug } = await params;
 
-  const handleAddToCart = async () => {
-    if (!selectedVariant) return;
-
-    setAdding(true);
-    setMessage('');
-    try {
-      await addToCart(selectedVariant.id);
-      setMessage('Added to cart!');
-      setTimeout(() => {
-        router.push('/cart');
-      }, 1000);
-    } catch (error) {
-      setMessage('Failed to add to cart. Please try again.');
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-      </div>
-    );
+  let photo;
+  try {
+    photo = await getPhoto(slug);
+  } catch {
+    notFound();
   }
 
-  if (!photo) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <p className="text-gray-500 mb-4">Photo not found</p>
-        <Link href="/photos" className="text-blue-600 hover:text-blue-700">
-          Browse all prints
-        </Link>
-      </div>
-    );
-  }
-
-  const paperVariants = photo.variants?.filter((v) => v.material === 'paper' && v.is_available) || [];
-  const aluminumVariants = photo.variants?.filter((v) => v.material === 'aluminum' && v.is_available) || [];
-
-  // Use actual aspect ratio from API, or fall back to orientation-based defaults
-  const sourceRatio = photo.aspect_ratio || (
-    photo.orientation === 'vertical' ? 2 / 3
-    : photo.orientation === 'square' ? 1
-    : 3 / 2
-  );
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Image */}
-        <div
-          className="relative bg-gray-100 rounded overflow-hidden"
-          style={{ aspectRatio: sourceRatio }}
-        >
-          {photo.image ? (
-            <>
-              <Image
-                src={photo.image}
-                alt={photo.title}
-                fill
-                quality={95}
-                className="object-contain"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                priority
-              />
-              {selectedVariant && (
-                <CropOverlay
-                  widthInches={selectedVariant.width_inches}
-                  heightInches={selectedVariant.height_inches}
-                  sourceRatio={sourceRatio}
-                />
-              )}
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              No image available
-            </div>
-          )}
-        </div>
-
-        {/* Details */}
-        <div>
-          <Link
-            href={`/collections/${photo.collection_slug}`}
-            className="text-sm text-blue-600 hover:text-blue-700 mb-2 inline-block"
-          >
-            {photo.collection_name}
-          </Link>
-          <h1 className="text-3xl font-light tracking-wide mb-2">{photo.title}</h1>
-          <p className="text-gray-500 mb-6">{photo.location}</p>
-
-          {photo.description && (
-            <p className="text-gray-600 mb-8 leading-relaxed">{photo.description}</p>
-          )}
-
-          {/* Variant Selection */}
-          <div className="space-y-6">
-            {paperVariants.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-3">Archival Paper</h3>
-                <div className="flex flex-wrap gap-2">
-                  {paperVariants.map((variant) => (
-                    <button
-                      key={variant.id}
-                      onClick={() => setSelectedVariant(variant)}
-                      className={`px-4 py-2 border rounded text-sm transition ${
-                        selectedVariant?.id === variant.id
-                          ? 'border-blue-600 bg-blue-50 text-blue-600'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {variant.size} - ${variant.price}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {aluminumVariants.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-3">Aluminum</h3>
-                <div className="flex flex-wrap gap-2">
-                  {aluminumVariants.map((variant) => (
-                    <button
-                      key={variant.id}
-                      onClick={() => setSelectedVariant(variant)}
-                      className={`px-4 py-2 border rounded text-sm transition ${
-                        selectedVariant?.id === variant.id
-                          ? 'border-blue-600 bg-blue-50 text-blue-600'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {variant.size} - ${variant.price}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Selected Variant Details */}
-          {selectedVariant && (
-            <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center gap-2 flex-wrap">
-                <span className="font-medium text-gray-900 dark:text-gray-100 min-w-0">{selectedVariant.display_name}</span>
-                <span className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex-shrink-0">${selectedVariant.price}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Add to Cart */}
-          <button
-            onClick={handleAddToCart}
-            disabled={!selectedVariant || adding}
-            className="mt-6 w-full py-3 bg-gray-900 text-white font-medium rounded hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {adding ? 'Adding...' : 'Add to Cart'}
-          </button>
-
-          {/* See In Your Room */}
-          <button
-            onClick={() => setShowMockupTool(true)}
-            className="mt-3 w-full py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            See In Your Room
-          </button>
-
-          {message && (
-            <p className={`mt-3 text-sm text-center ${message.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
-              {message}
-            </p>
-          )}
-
-          {/* Info */}
-          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 space-y-4 text-sm text-gray-600 dark:text-gray-300">
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Archival Paper Prints</h4>
-              <p>Museum-quality archival pigment inks on Hahnemühle Photo Rag paper. Unframed.</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Aluminum Prints</h4>
-              <p>HD metal prints with vibrant colors and exceptional durability. Ready to hang with float mount.</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Shipping</h4>
-              <p>Free shipping on orders over $500. Most orders ship within 5-7 business days.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mockup Tool Modal */}
-      {showMockupTool && (
-        <MockupTool
-          initialPhoto={photo}
-          initialVariant={selectedVariant || undefined}
-          onClose={() => setShowMockupTool(false)}
-        />
-      )}
-    </div>
-  );
+  return <PhotoDetailClient photo={photo} />;
 }
 
 
@@ -7241,15 +7669,14 @@ FILE: frontend/src/app/cart/page.tsx
 ================================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getCart, updateCartItem, removeCartItem, createCheckoutSession, checkGiftCard } from '@/lib/api';
-import type { Cart } from '@/types';
+import { updateCartItem, removeCartItem, createCheckoutSession, checkGiftCard } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 
 export default function CartPage() {
-  const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { cart, loading, refreshCart } = useCart();
   const [updating, setUpdating] = useState<number | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -7259,27 +7686,12 @@ export default function CartPage() {
   const [giftCardError, setGiftCardError] = useState('');
   const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
-  const fetchCart = async () => {
-    try {
-      const data = await getCart();
-      setCart(data);
-    } catch (error) {
-      console.error('Failed to fetch cart:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
   const handleUpdateQuantity = async (itemId: number, quantity: number) => {
     if (quantity < 1) return;
     setUpdating(itemId);
     try {
       await updateCartItem(itemId, quantity);
-      await fetchCart();
+      await refreshCart();
     } catch (error) {
       console.error('Failed to update quantity:', error);
     } finally {
@@ -7291,7 +7703,7 @@ export default function CartPage() {
     setUpdating(itemId);
     try {
       await removeCartItem(itemId);
-      await fetchCart();
+      await refreshCart();
     } catch (error) {
       console.error('Failed to remove item:', error);
     } finally {
@@ -7416,6 +7828,7 @@ export default function CartPage() {
                       onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                       disabled={updating === item.id || item.quantity <= 1}
                       className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                      aria-label="Decrease quantity"
                     >
                       -
                     </button>
@@ -7424,6 +7837,7 @@ export default function CartPage() {
                       onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                       disabled={updating === item.id}
                       className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
@@ -7547,10 +7961,12 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getProducts, addProductToCart } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 import type { Product } from '@/types';
 
 export default function BookPage() {
   const router = useRouter();
+  const { refreshCart } = useCart();
   const [book, setBook] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -7582,6 +7998,7 @@ export default function BookPage() {
     setMessage('');
     try {
       await addProductToCart(book.id, quantity);
+      await refreshCart();
       setMessage('Added to cart!');
       setTimeout(() => {
         router.push('/cart');
@@ -7596,7 +8013,7 @@ export default function BookPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-600 dark:border-t-gray-100 rounded-full animate-spin" />
       </div>
     );
   }
@@ -7604,7 +8021,7 @@ export default function BookPage() {
   if (!book) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <p className="text-gray-500 mb-4">Book not found</p>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">Book not found</p>
       </div>
     );
   }
@@ -7613,7 +8030,7 @@ export default function BookPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Book Image */}
-        <div className="relative aspect-[3/4] bg-gray-100 rounded overflow-hidden">
+        <div className="relative aspect-[3/4] bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
           {book.image ? (
             <Image
               src={book.image}
@@ -7632,21 +8049,21 @@ export default function BookPage() {
 
         {/* Book Details */}
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
             {book.product_type_display}
           </p>
           <h1 className="text-3xl font-light tracking-wide mb-2">{book.title}</h1>
           {book.author && (
-            <p className="text-lg text-gray-600 mb-4">by {book.author}</p>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">by {book.author}</p>
           )}
 
           {book.description && (
-            <p className="text-gray-600 mb-6 leading-relaxed">{book.description}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{book.description}</p>
           )}
 
           {book.long_description && (
             <div className="mb-8 prose prose-gray max-w-none">
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+              <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
                 {book.long_description}
               </p>
             </div>
@@ -7657,7 +8074,7 @@ export default function BookPage() {
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-medium">${book.price}</span>
               {book.is_on_sale && book.compare_at_price && (
-                <span className="text-lg text-gray-400 line-through">
+                <span className="text-lg text-gray-400 dark:text-gray-500 line-through">
                   ${book.compare_at_price}
                 </span>
               )}
@@ -7671,17 +8088,19 @@ export default function BookPage() {
           {book.is_in_stock && (
             <div className="mb-6">
               <label className="text-sm font-medium mb-2 block">Quantity</label>
-              <div className="flex items-center border border-gray-200 rounded w-fit">
+              <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded w-fit">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Decrease quantity"
                 >
                   -
                 </button>
                 <span className="px-4 py-2 min-w-[50px] text-center">{quantity}</span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Increase quantity"
                 >
                   +
                 </button>
@@ -7705,9 +8124,9 @@ export default function BookPage() {
           )}
 
           {/* Book Details */}
-          <div className="mt-8 pt-8 border-t border-gray-200 space-y-3 text-sm">
-            <h4 className="font-medium text-gray-900">Details</h4>
-            <dl className="grid grid-cols-2 gap-2 text-gray-600">
+          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 space-y-3 text-sm">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100">Details</h4>
+            <dl className="grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-400">
               {book.publisher && (
                 <>
                   <dt className="font-medium">Publisher</dt>
@@ -7742,8 +8161,8 @@ export default function BookPage() {
           </div>
 
           {/* Shipping Info */}
-          <div className="mt-6 pt-6 border-t border-gray-200 text-sm text-gray-600">
-            <h4 className="font-medium text-gray-900 mb-2">Shipping</h4>
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Shipping</h4>
             <p>Free shipping on orders over $500. Most orders ship within 3-5 business days.</p>
           </div>
         </div>
@@ -7798,7 +8217,7 @@ export default function GiftCardsPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">Gift Cards</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Give the gift of fine art photography. Perfect for any occasion.
         </p>
       </div>
@@ -7815,8 +8234,8 @@ export default function GiftCardsPage() {
                 onClick={() => setSelectedAmount(amount)}
                 className={`py-3 rounded border text-sm font-medium transition ${
                   selectedAmount === amount
-                    ? 'border-blue-600 bg-blue-50 text-blue-600'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 ${amount}
@@ -7830,23 +8249,23 @@ export default function GiftCardsPage() {
           <h3 className="text-sm font-medium">Recipient Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Email *</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Email *</label>
               <input
                 type="email"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="recipient@email.com"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input
                 type="text"
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Recipient's name"
               />
             </div>
@@ -7858,23 +8277,23 @@ export default function GiftCardsPage() {
           <h3 className="text-sm font-medium">Your Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Email *</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Email *</label>
               <input
                 type="email"
                 value={purchaserEmail}
                 onChange={(e) => setPurchaserEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="your@email.com"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input
                 type="text"
                 value={purchaserName}
                 onChange={(e) => setPurchaserName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Your name"
               />
             </div>
@@ -7889,10 +8308,10 @@ export default function GiftCardsPage() {
             onChange={(e) => setMessage(e.target.value)}
             rows={3}
             maxLength={500}
-            className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Add a personal message to include with the gift card..."
           />
-          <p className="text-xs text-gray-500 mt-1">{message.length}/500 characters</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{message.length}/500 characters</p>
         </div>
 
         {error && (
@@ -7907,7 +8326,7 @@ export default function GiftCardsPage() {
           {loading ? 'Processing...' : `Purchase $${selectedAmount} Gift Card`}
         </button>
 
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
           The recipient will receive their gift card via email immediately after purchase.
           Gift cards are valid for one year from the date of purchase.
         </p>
@@ -8187,21 +8606,21 @@ export default function TrackOrderPage() {
 
   const getStatusDisplay = (status: string) => {
     const statuses: Record<string, { label: string; color: string }> = {
-      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
-      paid: { label: 'Paid', color: 'bg-blue-100 text-blue-800' },
-      processing: { label: 'Processing', color: 'bg-purple-100 text-purple-800' },
-      shipped: { label: 'Shipped', color: 'bg-green-100 text-green-800' },
-      delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800' },
+      pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
+      paid: { label: 'Paid', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
+      processing: { label: 'Processing', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' },
+      shipped: { label: 'Shipped', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+      delivered: { label: 'Delivered', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
+      cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
     };
-    return statuses[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
+    return statuses[status] || { label: status, color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' };
   };
 
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">Track Your Order</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Enter your email and order number to check the status of your order.
         </p>
       </div>
@@ -8214,7 +8633,7 @@ export default function TrackOrderPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="The email used for your order"
           />
         </div>
@@ -8226,7 +8645,7 @@ export default function TrackOrderPage() {
             value={orderNumber}
             onChange={(e) => setOrderNumber(e.target.value)}
             required
-            className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="e.g., MR-240115-001"
           />
         </div>
@@ -8245,7 +8664,7 @@ export default function TrackOrderPage() {
       </form>
 
       {result && (
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+        <div className="mt-8 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium">Order {result.order_number}</h2>
             <span className={`px-3 py-1 rounded-full text-sm ${getStatusDisplay(result.status).color}`}>
@@ -8256,11 +8675,11 @@ export default function TrackOrderPage() {
           {result.tracking_number ? (
             <div className="space-y-2 text-sm">
               <p>
-                <span className="text-gray-500">Carrier:</span>{' '}
+                <span className="text-gray-500 dark:text-gray-400">Carrier:</span>{' '}
                 {result.tracking_carrier || 'Standard Shipping'}
               </p>
               <p>
-                <span className="text-gray-500">Tracking Number:</span>{' '}
+                <span className="text-gray-500 dark:text-gray-400">Tracking Number:</span>{' '}
                 {result.tracking_url ? (
                   <a
                     href={result.tracking_url}
@@ -8276,7 +8695,7 @@ export default function TrackOrderPage() {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {result.status === 'shipped' || result.status === 'delivered'
                 ? 'Tracking information will be updated shortly.'
                 : 'Tracking information will be available once your order ships.'}
@@ -8389,18 +8808,12 @@ FILE: frontend/src/components/Header.tsx
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { getCart } from '@/lib/api';
+import { useState } from 'react';
+import { useCart } from '@/contexts/CartContext';
 
 export default function Header() {
-  const [cartCount, setCartCount] = useState(0);
+  const { itemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    getCart()
-      .then((cart) => setCartCount(cart.item_count))
-      .catch(() => setCartCount(0));
-  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-100 dark:border-gray-800">
@@ -8430,9 +8843,9 @@ export default function Header() {
             </Link>
             <Link href="/cart" className="relative text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition">
               Cart
-              {cartCount > 0 && (
+              {itemCount > 0 && (
                 <span className="absolute -top-2 -right-4 bg-blue-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {cartCount}
+                  {itemCount}
                 </span>
               )}
             </Link>
@@ -8442,6 +8855,7 @@ export default function Header() {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-gray-900 dark:text-gray-100"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {mobileMenuOpen ? (
@@ -8473,7 +8887,7 @@ export default function Header() {
                 Contact
               </Link>
               <Link href="/cart" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => setMobileMenuOpen(false)}>
-                Cart {cartCount > 0 && `(${cartCount})`}
+                Cart {itemCount > 0 && `(${itemCount})`}
               </Link>
             </div>
           </div>
@@ -8948,26 +9362,25 @@ interface ChatWindowProps {
   onNewMessage: () => void;
 }
 
+const welcomeMessage: Message = {
+  id: 'welcome',
+  role: 'assistant',
+  content:
+    "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
+};
+
 export default function ChatWindow({
   conversationId,
   onConversationIdChange,
   onClose,
   onNewMessage,
 }: ChatWindowProps) {
-  const welcomeMessage: Message = {
-    id: 'welcome',
-    role: 'assistant',
-    content:
-      "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
-  };
-
   const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load chat history when conversation ID exists
   // But DON'T load if we're currently loading (streaming a response)
@@ -9037,7 +9450,7 @@ export default function ChatWindow({
           // If loading history fails, start fresh
         });
     }
-  }, [conversationId, historyLoaded]);
+  }, [conversationId, historyLoaded, isLoading]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -9223,6 +9636,7 @@ export default function ChatWindow({
             onClick={handleNewConversation}
             className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
             title="New conversation"
+            aria-label="Start new conversation"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -9232,6 +9646,7 @@ export default function ChatWindow({
             onClick={onClose}
             className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
             title="Close"
+            aria-label="Close chat"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -9658,6 +10073,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
             type="button"
             onClick={removeImage}
             className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+            aria-label="Remove image"
           >
             &times;
           </button>
@@ -9672,6 +10088,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
           disabled={isLoading}
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition disabled:opacity-50"
           title="Upload room photo"
+          aria-label="Upload image"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -9698,6 +10115,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about prints, sizes, or upload a room photo..."
+          aria-label="Type your message"
           disabled={isLoading}
           rows={1}
           className="
@@ -9714,6 +10132,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
         <button
           type="submit"
           disabled={(!message.trim() && !imageFile) || isLoading}
+          aria-label="Send message"
           className="
             p-2 rounded-lg
             bg-gray-900 dark:bg-gray-100
@@ -10049,12 +10468,32 @@ export default function MockupTool({ initialPhoto, initialVariant, onClose }: Mo
       <div className="bg-white dark:bg-gray-900 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100">
-            See In Your Room
-          </h2>
+          <div className="flex items-center gap-3">
+            {step === 'editor' && (
+              <button
+                onClick={() => {
+                  setStep('upload');
+                  setAnalysis(null);
+                  setPrints([]);
+                  setShareUrl(null);
+                  setError(null);
+                }}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
+                aria-label="Back to upload"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100">
+              {step === 'editor' ? 'Edit Mockup' : 'See In Your Room'}
+            </h2>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
+            aria-label="Close mockup tool"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -10445,6 +10884,7 @@ export default function WallCanvas({
           hasControls: true,
           hasBorders: true,
           lockRotation: true,
+          lockUniScaling: true,
           cornerColor: '#3b82f6',
           cornerStyle: 'circle',
           borderColor: '#3b82f6',
@@ -10511,6 +10951,7 @@ export default function WallCanvas({
           onClick={handleRemoveSelected}
           className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg flex items-center gap-1"
           title="Remove selected print"
+          aria-label="Remove selected print"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -10539,6 +10980,8 @@ FILE: CLAUDE.md
 E-commerce website for fine art photography prints targeting the Hamptons luxury art market. Sells photo prints (paper and aluminum), a photography book, and gift cards.
 
 **Live Site:** https://store.matthewraynor.com
+
+**Active Code Review:** See [CODE_REVIEW.md](CODE_REVIEW.md) for tracked findings and implementation status.
 
 ---
 

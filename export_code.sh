@@ -49,6 +49,8 @@ add_file "backend/apps/orders/views.py"
 add_file "backend/apps/orders/serializers.py"
 add_file "backend/apps/orders/urls.py"
 add_file "backend/apps/orders/admin.py"
+add_file "backend/apps/orders/tasks.py"
+add_file "backend/apps/orders/emails.py"
 
 # Payments App (Stripe)
 add_file "backend/apps/payments/views.py"

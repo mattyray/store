@@ -434,7 +434,7 @@ class StripeWebhookView(APIView):
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
         metadata = session.get('metadata', {})
-        payment_intent = session.get('payment_intent', '')
+        payment_intent = session.get('payment_intent') or None
 
         # Idempotency: skip if we already created a gift card for this payment
         if payment_intent and GiftCard.objects.filter(
