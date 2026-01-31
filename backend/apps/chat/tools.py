@@ -422,7 +422,7 @@ def get_cart(cart_id: str = None) -> dict:
                     'variant': item.variant.display_name,
                     'price': float(item.variant.price),
                     'quantity': item.quantity,
-                    'subtotal': float(item.subtotal),
+                    'subtotal': float(item.total_price),
                 })
             elif item.product:
                 items.append({
@@ -430,7 +430,7 @@ def get_cart(cart_id: str = None) -> dict:
                     'product_title': item.product.title,
                     'price': float(item.product.price),
                     'quantity': item.quantity,
-                    'subtotal': float(item.subtotal),
+                    'subtotal': float(item.total_price),
                 })
 
         return {
@@ -593,15 +593,13 @@ def track_order(order_number: str = None, email: str = None) -> dict:
     try:
         from apps.orders.models import Order
 
-        if not order_number and not email:
-            return {'error': 'Please provide an order number or email address'}
+        if not order_number or not email:
+            return {'error': 'Please provide both an order number and email address to look up an order'}
 
-        orders = Order.objects.all()
-
-        if order_number:
-            orders = orders.filter(order_number__iexact=order_number)
-        if email:
-            orders = orders.filter(email__iexact=email)
+        orders = Order.objects.filter(
+            order_number__iexact=order_number,
+            customer_email__iexact=email,
+        )
 
         if not orders.exists():
             return {'error': 'No orders found with that information'}
@@ -643,18 +641,22 @@ def check_gift_card(code: str) -> dict:
     try:
         gift_card = GiftCard.objects.get(code__iexact=code.strip())
 
+        if not gift_card.is_valid:
+            # Return same generic message as web endpoint to prevent
+            # enumeration of valid vs invalid/expired codes
+            return {'valid': False, 'error': 'This gift card is not valid'}
+
         return {
-            'code': gift_card.code,
+            'valid': True,
             'balance': float(gift_card.remaining_balance),
-            'original_amount': float(gift_card.initial_amount),
-            'is_active': gift_card.is_active,
             'message': f'Gift card has a balance of ${gift_card.remaining_balance:.2f}',
         }
 
     except GiftCard.DoesNotExist:
-        return {'error': 'Gift card not found. Please check the code and try again.'}
-    except Exception as e:
-        return {'error': str(e)}
+        # Same message as valid-but-expired to prevent code enumeration
+        return {'valid': False, 'error': 'This gift card is not valid'}
+    except Exception:
+        return {'valid': False, 'error': 'This gift card is not valid'}
 
 
 # ============================================================================

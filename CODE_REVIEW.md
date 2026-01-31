@@ -297,14 +297,14 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 - **Why:** Financial integrity. Webhook retries are normal in production.
 
 ### 39. Chat `track_order` tool exposes orders with email alone
-- **Status:** TODO
+- **Status:** DONE - Now requires both order number AND email, matching web endpoint behavior
 - **File:** `backend/apps/chat/tools.py` (track_order, ~lines 596-604)
 - **What's wrong:** The chat tool allows order lookup with only an email address (returns up to 5 orders with totals and dates). The web `OrderTrackingView` correctly requires both order number AND email. The chat tool should enforce the same requirement.
 - **Fix:** Require both `order_number` and `email` parameters, matching the web endpoint's behavior.
 - **Why:** Privacy. Anyone can type an email into the chat and see order history.
 
 ### 40. Chat `check_gift_card` tool enables gift card code enumeration
-- **Status:** TODO
+- **Status:** DONE - Return same generic error for not-found and invalid cards, only expose balance for valid cards
 - **File:** `backend/apps/chat/tools.py` (check_gift_card, ~lines 643-657)
 - **What's wrong:** The web endpoint `GiftCardCheckView` deliberately returns the same response for "not found" and "invalid" to prevent enumeration. But the chat tool returns a distinguishable "Gift card not found" error, and for existing cards returns `balance`, `original_amount`, and `is_active` regardless of status. An attacker could use the chat to enumerate valid gift card codes.
 - **Fix:** Return the same generic error message for not-found and invalid cards. Only return balance for active, non-expired cards.
