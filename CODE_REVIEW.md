@@ -152,7 +152,7 @@ Delete this file once all issues are addressed.
 - **Why:** Screen reader users can't navigate the site. Also affects Lighthouse accessibility score.
 
 ### 20. No back navigation in mockup editor flow
-- **Status:** Not started
+- **Status:** DONE - Added back button (chevron) in MockupTool header when in editor step. Resets analysis, prints, share URL, and error state. Title changes to "Edit Mockup" in editor.
 - **Files:** Mockup frontend components
 - **What's wrong:** The mockup flow (upload → detect wall → adjust → place print) is one-directional. If a user makes a mistake or wants to try a different photo, they have to close and start over.
 - **Fix:** Add back buttons between steps. Store previous step state so users can return without losing work.
