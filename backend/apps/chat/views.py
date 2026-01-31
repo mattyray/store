@@ -248,6 +248,15 @@ def upload_chat_image(request):
     Accepts multipart form with 'image' file.
     Returns the URL of the uploaded image.
     """
+    # Rate limit: 20 uploads per hour per IP
+    allowed, retry_after = _check_rate_limit(request, 'uploads', 20, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many uploads. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     if 'image' not in request.FILES:
         return JsonResponse({'error': 'No image provided'}, status=400)
 

@@ -8,7 +8,12 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+
+
+class UploadRateThrottle(AnonRateThrottle):
+    scope = 'uploads'
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +31,7 @@ class UploadWallImageView(APIView):
     parser_classes = [MultiPartParser]
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [UploadRateThrottle]
 
     def post(self, request):
         image = request.FILES.get('image')
