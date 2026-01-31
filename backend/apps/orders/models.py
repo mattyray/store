@@ -180,16 +180,16 @@ class OrderItem(models.Model):
         return 'variant' if self.variant else 'product'
 
     def save(self, *args, **kwargs):
-        if not self.item_title:
+        if self.item_title is None or self.item_title == '':
             if self.variant:
                 self.item_title = self.variant.photo.title
             elif self.product:
                 self.item_title = self.product.title
-        if not self.item_description:
+        if self.item_description is None or self.item_description == '':
             if self.variant:
                 self.item_description = self.variant.display_name
             elif self.product:
                 self.item_description = self.product.get_product_type_display()
-        if not self.total_price:
+        if self.total_price is None:
             self.total_price = self.unit_price * self.quantity
         super().save(*args, **kwargs)

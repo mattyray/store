@@ -41,6 +41,10 @@ class ContactFormView(APIView):
     throttle_classes = [ContactThrottle]
 
     def post(self, request):
+        # Honeypot: if this hidden field is filled, it's a bot
+        if request.data.get('website', ''):
+            return Response({'success': True, 'message': 'Message sent successfully'})
+
         name = request.data.get('name', '').strip()
         email = request.data.get('email', '').strip()
         subject = request.data.get('subject', '').strip()

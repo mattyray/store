@@ -261,7 +261,7 @@ Bugs and gaps found during verification of the above fixes.
 - **Why:** Financial integrity. A $2,500 gift card could be used for $5,000 in orders.
 
 ### 35. `Subscriber.SOURCE_CHOICES` missing values used in webhook
-- **Status:** TODO
+- **Status:** DONE - Added `('purchase', 'Purchase')` and `('gift_card_purchase', 'Gift Card Purchase')` to choices
 - **File:** `backend/apps/core/models.py` (Subscriber) + `backend/apps/payments/views.py`
 - **What's wrong:** Webhook handler creates subscribers with `source='purchase'` and `source='gift_card_purchase'`, but these values aren't in `SOURCE_CHOICES` (which has footer, popup, checkout, homepage). Django doesn't enforce choices at the DB level, but admin displays show blank values.
 - **Fix:** Add `('purchase', 'Purchase')` and `('gift_card_purchase', 'Gift Card Purchase')` to `SOURCE_CHOICES`.
@@ -343,14 +343,14 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 ### MEDIUM
 
 ### 45. Backend has no honeypot check on contact form
-- **Status:** TODO
+- **Status:** DONE - Added server-side honeypot check for `website` field matching frontend's hidden input
 - **File:** `backend/apps/core/views.py` (ContactFormView, ~lines 37-65)
 - **What's wrong:** The frontend checks a honeypot field and silently "succeeds" if filled. But the backend `ContactFormView` has no honeypot check. Bots that POST directly to `/api/contact/` bypass the protection entirely.
 - **Fix:** Accept a honeypot field in the backend serializer/view. If non-empty, return 200 with success message but don't send the email.
 - **Why:** Spam protection. The CLAUDE.md describes honeypot as a feature, but it's client-side only.
 
 ### 46. `OrderItem.save()` falsy check treats zero price as missing
-- **Status:** TODO
+- **Status:** DONE - Changed `if not self.total_price` to `if self.total_price is None`, same for title/description
 - **File:** `backend/apps/orders/models.py` (OrderItem.save, ~line 193)
 - **What's wrong:** `if not self.total_price:` evaluates True when `total_price` is `Decimal('0.00')`. A fully discounted item with explicit `total_price=0` gets silently recalculated. Same pattern affects `item_title` (empty string) and `item_description`.
 - **Fix:** Use `if self.total_price is None:` instead of falsy checks.

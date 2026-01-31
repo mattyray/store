@@ -14,6 +14,8 @@ class Subscriber(models.Model):
         ('popup', 'Popup'),
         ('checkout', 'Checkout'),
         ('homepage', 'Homepage'),
+        ('purchase', 'Purchase'),
+        ('gift_card_purchase', 'Gift Card Purchase'),
     ]
 
     email = models.EmailField(unique=True)
