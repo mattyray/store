@@ -12,6 +12,12 @@ class Conversation(models.Model):
     """A chat conversation with a customer."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session_key = models.CharField(
+        max_length=40,
+        blank=True,
+        db_index=True,
+        help_text='Session key of the user who started this conversation'
+    )
     cart = models.ForeignKey(
         'orders.Cart',
         null=True,
