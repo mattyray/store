@@ -1,16 +1,20 @@
+import json
 import logging
 import stripe
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.catalog.models import ProductVariant, Product
 from apps.orders.models import Cart, Order, OrderItem
 from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
@@ -59,6 +63,7 @@ class CreateCheckoutSessionView(APIView):
                 )
 
         line_items = []
+        cart_snapshot = []
         for item in cart.items.select_related('variant__photo', 'product'):
             if item.variant:
                 line_items.append({
@@ -75,6 +80,10 @@ class CreateCheckoutSessionView(APIView):
                     },
                     'quantity': item.quantity,
                 })
+                cart_snapshot.append({
+                    't': 'v', 'id': item.variant.id,
+                    'q': item.quantity, 'p': str(item.variant.price),
+                })
             elif item.product:
                 line_items.append({
                     'price_data': {
@@ -89,6 +98,10 @@ class CreateCheckoutSessionView(APIView):
                         },
                     },
                     'quantity': item.quantity,
+                })
+                cart_snapshot.append({
+                    't': 'p', 'id': item.product.id,
+                    'q': item.quantity, 'p': str(item.product.price),
                 })
 
         try:
@@ -105,6 +118,7 @@ class CreateCheckoutSessionView(APIView):
                 'billing_address_collection': 'required',
                 'metadata': {
                     'cart_id': str(cart.id),
+                    'cart_snapshot': json.dumps(cart_snapshot),
                 },
             }
 
@@ -211,31 +225,15 @@ class StripeWebhookView(APIView):
                 total=session.get('amount_total', 0) / 100,
             )
 
-            for item in cart.items.select_related('variant__photo', 'product'):
-                if item.variant:
-                    OrderItem.objects.create(
-                        order=order,
-                        variant=item.variant,
-                        item_title=item.variant.photo.title,
-                        item_description=item.variant.display_name,
-                        quantity=item.quantity,
-                        unit_price=item.variant.price,
-                        total_price=item.total_price,
-                    )
-                elif item.product:
-                    OrderItem.objects.create(
-                        order=order,
-                        product=item.product,
-                        item_title=item.product.title,
-                        item_description=item.product.get_product_type_display(),
-                        quantity=item.quantity,
-                        unit_price=item.product.price,
-                        total_price=item.total_price,
-                    )
-                    # Decrement stock if tracking inventory
-                    if item.product.track_inventory:
-                        item.product.stock_quantity -= item.quantity
-                        item.product.save()
+            # Use cart snapshot from metadata to ensure prices match what
+            # was charged. Fall back to live cart for older sessions.
+            snapshot_raw = metadata.get('cart_snapshot')
+            snapshot_items = json.loads(snapshot_raw) if snapshot_raw else None
+
+            if snapshot_items:
+                self._create_order_items_from_snapshot(order, snapshot_items)
+            else:
+                self._create_order_items_from_cart(order, cart)
 
             # Redeem gift card with row locking to prevent double-spend
             gift_card_code = metadata.get('gift_card_code')
@@ -280,6 +278,90 @@ class StripeWebhookView(APIView):
                 )
             except Exception:
                 pass
+
+    def _create_order_items_from_snapshot(self, order, snapshot_items):
+        """Create order items using the price snapshot from checkout time."""
+        for snap in snapshot_items:
+            quantity = snap['q']
+            price = Decimal(snap['p'])
+            total = price * quantity
+
+            if snap['t'] == 'v':
+                try:
+                    variant = ProductVariant.objects.select_related('photo').get(
+                        id=snap['id']
+                    )
+                    OrderItem.objects.create(
+                        order=order,
+                        variant=variant,
+                        item_title=variant.photo.title,
+                        item_description=variant.display_name,
+                        quantity=quantity,
+                        unit_price=price,
+                        total_price=total,
+                    )
+                except ProductVariant.DoesNotExist:
+                    logger.error(f"Variant {snap['id']} not found for order {order.order_number}")
+            elif snap['t'] == 'p':
+                try:
+                    product = Product.objects.get(id=snap['id'])
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        item_title=product.title,
+                        item_description=product.get_product_type_display(),
+                        quantity=quantity,
+                        unit_price=price,
+                        total_price=total,
+                    )
+                    # Atomic stock decrement to prevent race conditions
+                    if product.track_inventory:
+                        updated = Product.objects.filter(
+                            id=product.id,
+                            stock_quantity__gte=quantity,
+                        ).update(stock_quantity=F('stock_quantity') - quantity)
+                        if not updated:
+                            logger.warning(
+                                f"Insufficient stock for product {product.id} "
+                                f"(requested {quantity})"
+                            )
+                except Product.DoesNotExist:
+                    logger.error(f"Product {snap['id']} not found for order {order.order_number}")
+
+    def _create_order_items_from_cart(self, order, cart):
+        """Fallback: create order items from live cart (for older sessions without snapshot)."""
+        for item in cart.items.select_related('variant__photo', 'product'):
+            if item.variant:
+                OrderItem.objects.create(
+                    order=order,
+                    variant=item.variant,
+                    item_title=item.variant.photo.title,
+                    item_description=item.variant.display_name,
+                    quantity=item.quantity,
+                    unit_price=item.variant.price,
+                    total_price=item.total_price,
+                )
+            elif item.product:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    item_title=item.product.title,
+                    item_description=item.product.get_product_type_display(),
+                    quantity=item.quantity,
+                    unit_price=item.product.price,
+                    total_price=item.total_price,
+                )
+                # Atomic stock decrement to prevent race conditions
+                if item.product.track_inventory:
+                    updated = Product.objects.filter(
+                        id=item.product.id,
+                        stock_quantity__gte=item.quantity,
+                    ).update(stock_quantity=F('stock_quantity') - item.quantity)
+                    if not updated:
+                        logger.warning(
+                            f"Insufficient stock for product {item.product.id} "
+                            f"(requested {item.quantity})"
+                        )
 
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
