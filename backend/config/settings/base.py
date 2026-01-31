@@ -10,7 +10,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
+SECRET_KEY = os.environ['SECRET_KEY']  # No default — crash on startup if missing
 
 INSTALLED_APPS = [
     'django.contrib.admin',
