@@ -14,8 +14,8 @@ def cleanup_old_wall_analyses(hours: int = 24):
     """
     Delete WallAnalysis records older than specified hours.
 
-    Django's storage backend automatically deletes the S3 files
-    when the model instance is deleted.
+    Deletes SavedMockup records individually first to ensure their S3 files
+    are cleaned up (cascade SQL DELETE skips Django's file deletion).
 
     Args:
         hours: Delete records older than this many hours (default 24)
@@ -23,15 +23,24 @@ def cleanup_old_wall_analyses(hours: int = 24):
     Returns:
         Number of records deleted
     """
-    from .models import WallAnalysis
+    from .models import WallAnalysis, SavedMockup
 
     cutoff = timezone.now() - timedelta(hours=hours)
     old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
 
     count = old_analyses.count()
     if count > 0:
-        # Delete one by one to ensure S3 files are cleaned up
-        # (bulk delete doesn't trigger file deletion)
+        # Delete SavedMockups individually first so their S3 files are cleaned up
+        # (cascade SQL DELETE doesn't trigger Django storage file deletion)
+        mockups = SavedMockup.objects.filter(wall_analysis__in=old_analyses)
+        for mockup in mockups:
+            try:
+                mockup.mockup_image.delete(save=False)
+                mockup.delete()
+            except Exception as e:
+                logger.error(f'Failed to delete SavedMockup {mockup.id}: {e}')
+
+        # Delete WallAnalysis records one by one to clean up their S3 files
         for analysis in old_analyses:
             try:
                 analysis.delete()

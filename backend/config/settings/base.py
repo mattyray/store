@@ -153,6 +153,12 @@ CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_TASK_SOFT_TIME_LIMIT = 30  # Soft timeout in seconds
 CELERY_TASK_TIME_LIMIT = 45  # Hard timeout in seconds
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-old-mockups': {
+        'task': 'apps.mockup.tasks.cleanup_old_wall_analyses',
+        'schedule': 60 * 60 * 6,  # Every 6 hours
+    },
+}
 
 # AI Chat Agent
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')

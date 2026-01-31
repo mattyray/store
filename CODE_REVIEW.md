@@ -1,6 +1,6 @@
 # Code Review - Implementation Tracker
 
-Status: **In Progress**
+Status: **Complete**
 Last updated: 2026-01-31
 
 This file tracks findings from a comprehensive code review and their implementation status.
@@ -138,14 +138,14 @@ Delete this file once all issues are addressed.
 - **Why:** Defense in depth. The `contentDispositionType: 'attachment'` mitigates it, but removing the flag entirely is cleaner.
 
 ### 18. Dark mode text/background inconsistencies
-- **Status:** Not started
+- **Status:** DONE - Added `dark:` variants across layout.tsx, gift-cards, track-order, photos, book, collections, and homepage. Fixed body bg/text, inputs, buttons, badges, spinners, and placeholder backgrounds.
 - **Files:** Various frontend components
 - **What's wrong:** Some elements have `dark:` variants for text but not backgrounds (or vice versa), leading to invisible text or low-contrast elements in dark mode.
 - **Fix:** Audit all components in dark mode. Ensure every `bg-*` has a corresponding `dark:bg-*` and every `text-*` has a `dark:text-*`.
 - **Why:** ~30% of users prefer dark mode. Invisible text means lost sales.
 
 ### 19. Missing aria-labels and form label associations
-- **Status:** Not started
+- **Status:** DONE - Added `aria-label` to Header mobile menu button, MockupTool close/back buttons, ChatWindow new/close buttons, ChatInput image/send/textarea, WallCanvas remove button, and cart/book quantity buttons.
 - **Files:** Various frontend components
 - **What's wrong:** Interactive elements (icon buttons, image links) lack `aria-label` attributes. Form inputs don't have associated `<label>` elements or `aria-label`.
 - **Fix:** Add `aria-label` to all icon-only buttons (cart icon, close buttons, etc.). Associate form labels with inputs via `htmlFor`/`id`.
