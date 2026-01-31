@@ -4,8 +4,10 @@ Views for the AI chat agent.
 Provides SSE streaming endpoint for real-time chat responses.
 """
 import json
+import time
 import uuid
 
+from django.core.cache import cache
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -13,6 +15,33 @@ from django.conf import settings
 
 from .models import Conversation, Message
 from .agent import run_agent
+
+
+def _get_client_ip(request):
+    """Get client IP from request, accounting for proxies."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '')
+
+
+def _check_rate_limit(request, scope, max_requests, window_seconds):
+    """Simple rate limiter using Django cache. Returns (allowed, retry_after)."""
+    ip = _get_client_ip(request)
+    cache_key = f'throttle_{scope}_{ip}'
+    history = cache.get(cache_key, [])
+
+    now = time.time()
+    # Remove expired entries
+    history = [t for t in history if now - t < window_seconds]
+
+    if len(history) >= max_requests:
+        retry_after = int(window_seconds - (now - history[0]))
+        return False, retry_after
+
+    history.append(now)
+    cache.set(cache_key, history, window_seconds)
+    return True, 0
 
 
 def get_cart_id_from_request(request):
