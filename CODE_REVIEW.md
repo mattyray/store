@@ -92,7 +92,7 @@ Delete this file once all issues are addressed.
 - **Why:** A cart with 5 items triggers ~11 queries instead of 2-3. Noticeable on every page load (header cart count).
 
 ### 12. Cart state not shared via React context
-- **Status:** Not started
+- **Status:** DONE - Created `CartProvider` context with `cart`, `itemCount`, `refreshCart()`. Header, cart page, photo detail, and book pages all use shared context. Also fixed Cart type to match API (`total_items` not `item_count`).
 - **Files:** `frontend/src/components/Header.tsx`, `frontend/src/app/cart/page.tsx`
 - **What's wrong:** Both the Header (cart count badge) and Cart page independently fetch cart data. Every page navigation triggers a fresh cart fetch from the header. There's no shared cart context.
 - **Fix:** Create a `CartProvider` context that fetches once and provides `cart`, `refreshCart()`, and `itemCount` to all consumers.
@@ -106,8 +106,8 @@ Delete this file once all issues are addressed.
 - **Why:** Stripe's retry policy means this WILL happen in production. Duplicate orders mean duplicate fulfillment.
 
 ### 14. No conversation length limit
-- **Status:** Not started
-- **File:** `backend/apps/chat/views.py`
+- **Status:** DONE - Added `max_messages=50` parameter to `build_message_history()` in `agent.py`, limits to most recent 50 messages
+- **File:** `backend/apps/chat/agent.py`
 - **What's wrong:** The full message history is sent to Claude on every request. A long conversation sends increasingly large token counts with no cap. At ~500 messages, you're sending the maximum context window every time.
 - **Fix:** Limit history to the last N messages (e.g., 50) or implement token counting with truncation. Also consider a max messages-per-conversation limit.
 - **Why:** LLM costs scale linearly with input tokens. An unattended chat session could accumulate massive costs.
@@ -117,22 +117,22 @@ Delete this file once all issues are addressed.
 ## MEDIUM - UX & Accessibility
 
 ### 15. userScalable: false blocks pinch-to-zoom
-- **Status:** Not started
-- **File:** `frontend/src/app/layout.tsx` (viewport export, line ~14)
+- **Status:** DONE - Removed `userScalable: false`, `maximumScale: 1`, and `minimumScale: 1` from viewport config
+- **File:** `frontend/src/app/layout.tsx` (viewport export)
 - **What's wrong:** `userScalable: false` and `maximumScale: 1` prevent mobile users from zooming in. This is an accessibility violation (WCAG 1.4.4) — users with low vision rely on pinch-to-zoom.
 - **Fix:** Remove `userScalable: false`, `maximumScale: 1`, and `minimumScale: 1` from the viewport config.
 - **Why:** Accessibility compliance and usability. Also penalized by some SEO audits (Lighthouse).
 
 ### 16. No error.tsx or loading.tsx files
-- **Status:** Not started
+- **Status:** DONE - Added `error.tsx` (client component with retry button, dark mode support) and `loading.tsx` (spinner) to root `app/` directory
 - **File:** `frontend/src/app/` directory
 - **What's wrong:** Next.js App Router uses `error.tsx` for error boundaries and `loading.tsx` for streaming suspense UI. Without them, unhandled errors show a blank white page with no recovery option.
 - **Fix:** Add `error.tsx` (client component with retry button) and `loading.tsx` (spinner or skeleton) to the root `app/` directory.
 - **Why:** User experience. A white screen with no feedback is the worst possible failure mode for a store.
 
 ### 17. dangerouslyAllowSVG in Next.js image config
-- **Status:** Not started
-- **File:** `frontend/next.config.ts` (line ~6)
+- **Status:** DONE - Removed `dangerouslyAllowSVG: true` and `contentDispositionType: 'attachment'` — no SVGs used in photography store
+- **File:** `frontend/next.config.ts`
 - **What's wrong:** `dangerouslyAllowSVG: true` allows SVG files through Next.js image optimization. SVGs can contain embedded JavaScript, making this an XSS vector if user-uploaded SVGs are ever served.
 - **Fix:** If no SVG images are used (photography store — likely all JPEG/PNG), remove this flag. If SVGs are needed, keep `contentDispositionType: 'attachment'` (already present) which mitigates the risk.
 - **Why:** Defense in depth. The `contentDispositionType: 'attachment'` mitigates it, but removing the flag entirely is cleaner.

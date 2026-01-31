@@ -28,11 +28,18 @@ def get_llm():
     )
 
 
-def build_message_history(conversation: Conversation) -> list:
-    """Convert database messages to LangChain message format."""
+def build_message_history(conversation: Conversation, max_messages: int = 50) -> list:
+    """Convert database messages to LangChain message format.
+
+    Limits history to the most recent messages to control token usage.
+    """
     messages = []
 
-    for msg in conversation.messages.all():
+    # Limit to the most recent messages to avoid sending huge context to the LLM
+    db_messages = conversation.messages.order_by('-created_at')[:max_messages]
+    db_messages = list(reversed(db_messages))  # Restore chronological order
+
+    for msg in db_messages:
         if msg.role == 'user':
             content = msg.content
             # Handle images in user messages (only HTTPS URLs - Claude API requirement)

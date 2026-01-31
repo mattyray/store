@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getProducts, addProductToCart } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 import type { Product } from '@/types';
 
 export default function BookPage() {
   const router = useRouter();
+  const { refreshCart } = useCart();
   const [book, setBook] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -39,6 +41,7 @@ export default function BookPage() {
     setMessage('');
     try {
       await addProductToCart(book.id, quantity);
+      await refreshCart();
       setMessage('Added to cart!');
       setTimeout(() => {
         router.push('/cart');

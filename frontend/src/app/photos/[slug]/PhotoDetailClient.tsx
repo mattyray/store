@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { addToCart } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 import type { Photo, ProductVariant } from '@/types';
 import CropOverlay from '@/components/CropOverlay';
 import { MockupTool } from '@/components/mockup';
@@ -15,6 +16,7 @@ interface Props {
 
 export default function PhotoDetailClient({ photo }: Props) {
   const router = useRouter();
+  const { refreshCart } = useCart();
 
   const firstAvailable = photo.variants?.find((v) => v.is_available) ?? null;
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(firstAvailable);
@@ -29,6 +31,7 @@ export default function PhotoDetailClient({ photo }: Props) {
     setMessage('');
     try {
       await addToCart(selectedVariant.id);
+      await refreshCart();
       setMessage('Added to cart!');
       setTimeout(() => {
         router.push('/cart');
