@@ -1,6 +1,6 @@
 # Code Review - Implementation Tracker
 
-Status: **Complete**
+Status: **In Progress**
 Last updated: 2026-01-31
 
 This file tracks findings from a comprehensive code review and their implementation status.
@@ -217,3 +217,171 @@ Delete this file once all issues are addressed.
 - **What's wrong:** Tool functions that make external HTTP requests (to Stripe, OpenAI, etc.) don't set explicit timeouts. A hung external service blocks the thread indefinitely.
 - **Fix:** Add `timeout=10` (seconds) to all `requests.get()`/`requests.post()` calls. For LLM calls, LangChain supports timeout configuration.
 - **Why:** Reliability. External services go down. Without timeouts, your server hangs.
+
+---
+
+## Round 2 — Audit Findings (2026-01-31)
+
+Bugs and gaps found during verification of the above fixes.
+
+### 29. `track_order` chat tool queried wrong field name
+- **Status:** DONE - Changed `email__iexact` to `customer_email__iexact`
+- **File:** `backend/apps/chat/tools.py` (track_order)
+- **What was wrong:** The tool filtered with `email__iexact` but the Order model field is `customer_email`. Searching by email never returned results.
+
+### 30. `get_cart` chat tool referenced nonexistent `item.subtotal`
+- **Status:** DONE - Changed `item.subtotal` to `item.total_price` (2 occurrences)
+- **File:** `backend/apps/chat/tools.py` (get_cart)
+- **What was wrong:** `CartItem` has a `total_price` property, not `subtotal`. The tool raised `AttributeError` whenever the agent tried to show cart contents.
+
+### 31. `GiftCard.mark_sent()` method missing
+- **Status:** DONE - Added `mark_sent()` method that sets `is_sent=True` and `sent_at=now()`
+- **File:** `backend/apps/core/models.py` (GiftCard)
+- **What was wrong:** `handle_gift_card_purchase` called `gift_card.mark_sent()` but the method didn't exist. The `AttributeError` was silently swallowed by a bare `except: pass`, so `is_sent` and `sent_at` were never updated.
+
+### 32. Webhook idempotency check is not atomic
+- **Status:** TODO
+- **File:** `backend/apps/payments/views.py` (handle_checkout_completed)
+- **What's wrong:** The `Order.objects.filter(stripe_checkout_id=...).exists()` check runs before `transaction.atomic()`. Two concurrent webhook retries can both pass the check and create duplicate orders. `stripe_checkout_id` is indexed but not unique.
+- **Fix:** Add `unique=True` to `stripe_checkout_id` on Order and catch `IntegrityError` as a secondary guard, or move the existence check inside the transaction.
+- **Why:** Stripe retries webhooks. Under slow responses, concurrent retries are realistic.
+
+### 33. `chat_sync` creates conversations without `session_key`
+- **Status:** TODO
+- **File:** `backend/apps/chat/views.py` (chat_sync, ~line 196)
+- **What's wrong:** `chat_sync` calls `Conversation.objects.create()` without `session_key`. The ownership check in `chat_history` skips validation when `session_key` is empty, so these conversations are readable by anyone who knows the UUID.
+- **Fix:** Add session key handling to `chat_sync` the same way `chat_stream` does.
+- **Why:** Privacy. Same reasoning as fix #4.
+
+### 34. Gift card race window between checkout creation and webhook
+- **Status:** TODO
+- **File:** `backend/apps/payments/views.py` (CreateCheckoutSessionView + handle_checkout_completed)
+- **What's wrong:** The gift card balance is read and a Stripe coupon created at checkout time (no lock). The actual redemption happens later in the webhook with `select_for_update`. Two concurrent checkouts can both read the full balance, both create coupons for the full amount, and both succeed at Stripe. The store absorbs the difference.
+- **Fix:** Reserve/hold the gift card amount at checkout creation time inside `select_for_update`, or validate the coupon amount against the current balance in the webhook and reject if insufficient.
+- **Why:** Financial integrity. A $2,500 gift card could be used for $5,000 in orders.
+
+### 35. `Subscriber.SOURCE_CHOICES` missing values used in webhook
+- **Status:** TODO
+- **File:** `backend/apps/core/models.py` (Subscriber) + `backend/apps/payments/views.py`
+- **What's wrong:** Webhook handler creates subscribers with `source='purchase'` and `source='gift_card_purchase'`, but these values aren't in `SOURCE_CHOICES` (which has footer, popup, checkout, homepage). Django doesn't enforce choices at the DB level, but admin displays show blank values.
+- **Fix:** Add `('purchase', 'Purchase')` and `('gift_card_purchase', 'Gift Card Purchase')` to `SOURCE_CHOICES`.
+- **Why:** Data cleanliness. Minor.
+
+### 36. No default Open Graph image on root layout
+- **Status:** TODO
+- **File:** `frontend/src/app/layout.tsx`
+- **What's wrong:** Root layout metadata has `openGraph.title` and `description` but no `images`. Sharing the homepage on social media shows no preview image.
+- **Fix:** Add a default OG image (e.g., a hero photo or logo) to the root layout's `openGraph.images` array.
+- **Why:** Social sharing is free marketing. Photo detail pages have images; the homepage should too.
+
+### 37. Shared mockup links expire after 24 hours
+- **Status:** TODO
+- **File:** `backend/apps/mockup/tasks.py` (cleanup_old_wall_analyses)
+- **What's wrong:** The cleanup task deletes `WallAnalysis` (cascading to `SavedMockup`) after 24 hours. But `SavedMockup.share_url` generates permanent-looking `/mockup/{id}` URLs. Shared links silently break the next day.
+- **Fix:** Either exclude `SavedMockup` records from cleanup (only delete analyses without saved mockups), or extend the TTL significantly for saved mockups, or show a friendly "expired" message instead of 404.
+- **Why:** UX. Customers sharing mockups with partners/designers will hit dead links.
+
+---
+
+## Round 3 — Deep Review Findings (2026-01-31)
+
+New issues identified by a comprehensive code review agent. Covers security, race conditions, data integrity, and code quality across the full stack.
+
+### CRITICAL
+
+### 38. Gift card purchase webhook has no idempotency check
+- **Status:** TODO
+- **File:** `backend/apps/payments/views.py` (handle_gift_card_purchase, ~lines 386-403)
+- **What's wrong:** Unlike `handle_checkout_completed` (which checks for existing orders), the gift card purchase handler creates a new gift card on every webhook invocation with no duplicate check. The `stripe_payment_intent` is stored but never checked before creation. A replayed webhook creates a duplicate gift card, doubling the value delivered for a single payment.
+- **Fix:** Check for existing `GiftCard` with the same `stripe_payment_intent` before creating. Add `unique=True` to `GiftCard.stripe_payment_intent`.
+- **Why:** Financial integrity. Webhook retries are normal in production.
+
+### 39. Chat `track_order` tool exposes orders with email alone
+- **Status:** TODO
+- **File:** `backend/apps/chat/tools.py` (track_order, ~lines 596-604)
+- **What's wrong:** The chat tool allows order lookup with only an email address (returns up to 5 orders with totals and dates). The web `OrderTrackingView` correctly requires both order number AND email. The chat tool should enforce the same requirement.
+- **Fix:** Require both `order_number` and `email` parameters, matching the web endpoint's behavior.
+- **Why:** Privacy. Anyone can type an email into the chat and see order history.
+
+### 40. Chat `check_gift_card` tool enables gift card code enumeration
+- **Status:** TODO
+- **File:** `backend/apps/chat/tools.py` (check_gift_card, ~lines 643-657)
+- **What's wrong:** The web endpoint `GiftCardCheckView` deliberately returns the same response for "not found" and "invalid" to prevent enumeration. But the chat tool returns a distinguishable "Gift card not found" error, and for existing cards returns `balance`, `original_amount`, and `is_active` regardless of status. An attacker could use the chat to enumerate valid gift card codes.
+- **Fix:** Return the same generic error message for not-found and invalid cards. Only return balance for active, non-expired cards.
+- **Why:** Security. Gift card codes can be brute-forced if existence is revealed.
+
+### HIGH
+
+### 41. Silent failure on gift card email delivery
+- **Status:** TODO
+- **File:** `backend/apps/payments/views.py` (handle_gift_card_purchase, ~lines 410-420)
+- **What's wrong:** Both `send_gift_card_email` and the purchase confirmation email are wrapped in bare `except: pass`. If email delivery fails, the customer pays but the recipient never receives the gift card. No logging, no alert, no retry. Compare to order confirmation emails which at least log the failure.
+- **Fix:** Add `logger.exception(...)` at minimum. Consider a Celery retry task for failed deliveries.
+- **Why:** Customer pays for a product that's never delivered. Silent failure means no one knows.
+
+### 42. Chat agent creates orphan carts disconnected from user session
+- **Status:** TODO
+- **File:** `backend/apps/chat/tools.py` (add_to_cart, ~lines 362-367)
+- **What's wrong:** When `cart_id` doesn't exist in DB, `get_or_create` creates a new cart with a random `session_key` (not the user's actual session). This cart is invisible to the browser session. If invoked before the user has a cart, an orphan is created that the web views will never find.
+- **Fix:** Pass the actual session key from the chat view to the tool. Fall back to finding/creating the session-based cart the same way web views do.
+- **Why:** Items added via chat disappear from the user's cart page.
+
+### 43. N+1 queries in chat search tools
+- **Status:** TODO
+- **File:** `backend/apps/chat/tools.py` (search_photos_semantic ~lines 163-182, search_photos_filter ~lines 233-249, get_collections ~line 329)
+- **What's wrong:** Search tools iterate over photos calling `photo.price_range` (triggers `self.variants.filter(...)` per photo) and `photo.collection.name` (lazy load per photo). Neither uses `select_related` or `prefetch_related`. With limit=10, each search triggers 20+ extra queries. Same issue in `get_collections` with `photo_count`.
+- **Fix:** Add `select_related('collection')` and `prefetch_related('variants')` to search querysets.
+- **Why:** Performance. Each chat search triggers dozens of unnecessary queries.
+
+### 44. N+1 queries in cart properties called from chat tools
+- **Status:** TODO
+- **File:** `backend/apps/chat/tools.py` (multiple tools: add_to_cart, get_cart, remove_from_cart, etc.)
+- **What's wrong:** Web views use `get_or_create_cart` which prefetches `items__variant__photo` and `items__product`. But chat tools fetch carts with plain `Cart.objects.get(id=cart_id)` — no prefetch. Each `cart.subtotal` and `cart.total_items` call triggers N+1 queries.
+- **Fix:** Add prefetch to cart lookups in chat tools, or create a shared utility function.
+- **Why:** Performance. Compounds with every cart-related chat interaction.
+
+### MEDIUM
+
+### 45. Backend has no honeypot check on contact form
+- **Status:** TODO
+- **File:** `backend/apps/core/views.py` (ContactFormView, ~lines 37-65)
+- **What's wrong:** The frontend checks a honeypot field and silently "succeeds" if filled. But the backend `ContactFormView` has no honeypot check. Bots that POST directly to `/api/contact/` bypass the protection entirely.
+- **Fix:** Accept a honeypot field in the backend serializer/view. If non-empty, return 200 with success message but don't send the email.
+- **Why:** Spam protection. The CLAUDE.md describes honeypot as a feature, but it's client-side only.
+
+### 46. `OrderItem.save()` falsy check treats zero price as missing
+- **Status:** TODO
+- **File:** `backend/apps/orders/models.py` (OrderItem.save, ~line 193)
+- **What's wrong:** `if not self.total_price:` evaluates True when `total_price` is `Decimal('0.00')`. A fully discounted item with explicit `total_price=0` gets silently recalculated. Same pattern affects `item_title` (empty string) and `item_description`.
+- **Fix:** Use `if self.total_price is None:` instead of falsy checks.
+- **Why:** Data integrity for edge cases (fully discounted items, items with intentionally empty descriptions).
+
+### 47. `ProductVariant.price` type inconsistency between frontend and chat
+- **Status:** TODO
+- **File:** `frontend/src/types/index.ts` (~line 38), `backend/apps/chat/tools.py` (~line 281)
+- **What's wrong:** DRF serializes `DecimalField` as strings (`"175.00"`), frontend types declare `price: string`. But chat tools return `float(v.price)`, making price a number in chat contexts. `ChatMessage.tsx` calls `variant.price.toLocaleString()` expecting a number. Inconsistent and fragile.
+- **Fix:** Return string prices from chat tools (matching the API), or consistently use numbers everywhere.
+- **Why:** Type safety. Works by accident today, could break with any change.
+
+### LOW
+
+### 48. React dependency array issues in ChatWindow
+- **Status:** TODO
+- **File:** `frontend/src/components/chat/ChatWindow.tsx` (~lines 64-69, 138, 146)
+- **What's wrong:** `welcomeMessage` is defined inside the component body (recreated every render) and referenced in effects but omitted from dependency arrays. `isLoading` is also used in the history effect but not in its dependency array. Could cause skipped or doubled history loads.
+- **Fix:** Move `welcomeMessage` outside the component or wrap in `useMemo`. Add missing dependencies to effect arrays.
+- **Why:** React correctness. Could cause subtle bugs with concurrent renders.
+
+### 49. Frontend `tracking_url` type is dead code
+- **Status:** TODO
+- **File:** `frontend/src/app/track-order/page.tsx` (~lines 6-12), `backend/apps/orders/views.py` (~lines 167-183)
+- **What's wrong:** Frontend types declare `tracking_url?: string` and render a link if present, but the backend `OrderTrackingView` never returns this field. The code path is dead.
+- **Fix:** Either implement tracking URL support in the backend, or remove the dead frontend code.
+- **Why:** Code cleanliness. Dead code confuses future maintainers.
+
+### 50. No stale cart cleanup mechanism
+- **Status:** TODO
+- **File:** `backend/apps/orders/models.py`
+- **What's wrong:** Every visitor creates a session and cart via `get_or_create_cart`. The mockup app has cleanup tasks, but carts and Django sessions accumulate indefinitely. Over months, `orders_cart`, `orders_cartitem`, and `django_session` tables grow without bound.
+- **Fix:** Add a periodic Celery task to delete carts older than N days (e.g., 30) that have no associated order.
+- **Why:** Database hygiene. Low urgency but grows over time.
