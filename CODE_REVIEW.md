@@ -327,14 +327,14 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 - **Why:** Items added via chat disappear from the user's cart page.
 
 ### 43. N+1 queries in chat search tools
-- **Status:** TODO
+- **Status:** DONE - Added `select_related('collection')` and `prefetch_related('variants')` to search querysets, annotated `get_collections` with `Count`
 - **File:** `backend/apps/chat/tools.py` (search_photos_semantic ~lines 163-182, search_photos_filter ~lines 233-249, get_collections ~line 329)
 - **What's wrong:** Search tools iterate over photos calling `photo.price_range` (triggers `self.variants.filter(...)` per photo) and `photo.collection.name` (lazy load per photo). Neither uses `select_related` or `prefetch_related`. With limit=10, each search triggers 20+ extra queries. Same issue in `get_collections` with `photo_count`.
 - **Fix:** Add `select_related('collection')` and `prefetch_related('variants')` to search querysets.
 - **Why:** Performance. Each chat search triggers dozens of unnecessary queries.
 
 ### 44. N+1 queries in cart properties called from chat tools
-- **Status:** TODO
+- **Status:** DONE - Added `prefetch_related('items__variant__photo', 'items__product')` to all cart lookups in chat tools
 - **File:** `backend/apps/chat/tools.py` (multiple tools: add_to_cart, get_cart, remove_from_cart, etc.)
 - **What's wrong:** Web views use `get_or_create_cart` which prefetches `items__variant__photo` and `items__product`. But chat tools fetch carts with plain `Cart.objects.get(id=cart_id)` — no prefetch. Each `cart.subtotal` and `cart.total_items` call triggers N+1 queries.
 - **Fix:** Add prefetch to cart lookups in chat tools, or create a shared utility function.

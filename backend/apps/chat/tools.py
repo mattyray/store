@@ -78,7 +78,7 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                 photos = Photo.objects.filter(
                     is_active=True,
                     embedding__isnull=False
-                ).order_by(
+                ).select_related('collection').prefetch_related('variants').order_by(
                     CosineDistance('embedding', query_embedding)
                 )[:limit]
         except Exception:
@@ -153,7 +153,9 @@ def search_photos_semantic(query: str, limit: int = 5) -> list:
                         )
                     q_combined &= word_match  # AND logic between different search terms
 
-                photos = Photo.objects.filter(q_combined).filter(is_active=True).distinct()[:limit]
+                photos = Photo.objects.filter(q_combined).filter(
+                    is_active=True
+                ).select_related('collection').prefetch_related('variants').distinct()[:limit]
 
         # Don't return random photos if nothing matches - let the agent know
         # This is better UX than showing unrelated results
@@ -212,7 +214,9 @@ def search_photos_filter(
         List of matching photos with details
     """
     try:
-        photos = Photo.objects.filter(is_active=True)
+        photos = Photo.objects.filter(is_active=True).select_related(
+            'collection'
+        ).prefetch_related('variants')
 
         if collection:
             photos = photos.filter(collection__slug__iexact=collection)
@@ -318,7 +322,11 @@ def get_collections() -> list:
         List of all active collections with descriptions
     """
     try:
-        collections = Collection.objects.filter(is_active=True).order_by('display_order')
+        from django.db.models import Count, Q
+
+        collections = Collection.objects.filter(is_active=True).annotate(
+            active_photo_count=Count('photos', filter=Q(photos__is_active=True))
+        ).order_by('display_order')
 
         results = []
         for c in collections:
@@ -326,7 +334,7 @@ def get_collections() -> list:
                 'slug': c.slug,
                 'name': c.name,
                 'description': c.description,
-                'photo_count': c.photo_count,
+                'photo_count': c.active_photo_count,
             })
 
         return results
@@ -363,7 +371,9 @@ def add_to_cart(photo_slug: str, variant_id: int, quantity: int = 1, cart_id: st
             return {'error': 'No cart available. Please refresh the page and try again.'}
 
         try:
-            cart = Cart.objects.get(id=cart_id)
+            cart = Cart.objects.prefetch_related(
+                'items__variant__photo', 'items__product'
+            ).get(id=cart_id)
         except Cart.DoesNotExist:
             return {'error': 'Cart not found. Please refresh the page and try again.'}
 
@@ -410,7 +420,9 @@ def get_cart(cart_id: str = None) -> dict:
             return {'items': [], 'total': 0, 'item_count': 0}
 
         try:
-            cart = Cart.objects.get(id=cart_id)
+            cart = Cart.objects.prefetch_related(
+                'items__variant__photo', 'items__product'
+            ).get(id=cart_id)
         except Cart.DoesNotExist:
             return {'items': [], 'total': 0, 'item_count': 0}
 
@@ -462,7 +474,9 @@ def remove_from_cart(item_id: int, cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
         item = CartItem.objects.get(id=item_id, cart=cart)
         item_name = str(item)
         item.delete()
@@ -497,7 +511,9 @@ def update_cart_item(item_id: int, quantity: int, cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
         item = CartItem.objects.get(id=item_id, cart=cart)
 
         if quantity <= 0:
@@ -543,7 +559,9 @@ def start_checkout(cart_id: str = None) -> dict:
         if not cart_id:
             return {'error': 'No cart found'}
 
-        cart = Cart.objects.get(id=cart_id)
+        cart = Cart.objects.prefetch_related(
+            'items__variant__photo', 'items__product'
+        ).get(id=cart_id)
 
         if cart.total_items == 0:
             return {'error': 'Cart is empty'}
