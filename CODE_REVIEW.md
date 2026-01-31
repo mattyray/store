@@ -254,7 +254,7 @@ Bugs and gaps found during verification of the above fixes.
 - **Why:** Privacy. Same reasoning as fix #4.
 
 ### 34. Gift card race window between checkout creation and webhook
-- **Status:** TODO
+- **Status:** DONE - Reserve balance at checkout creation with `select_for_update()`, refund on `checkout.session.expired`
 - **File:** `backend/apps/payments/views.py` (CreateCheckoutSessionView + handle_checkout_completed)
 - **What's wrong:** The gift card balance is read and a Stripe coupon created at checkout time (no lock). The actual redemption happens later in the webhook with `select_for_update`. Two concurrent checkouts can both read the full balance, both create coupons for the full amount, and both succeed at Stripe. The store absorbs the difference.
 - **Fix:** Reserve/hold the gift card amount at checkout creation time inside `select_for_update`, or validate the coupon amount against the current balance in the webhook and reject if insufficient.

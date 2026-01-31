@@ -56,15 +56,26 @@ class CreateCheckoutSessionView(APIView):
 
         if gift_card_code:
             try:
-                gift_card = GiftCard.objects.get(code=gift_card_code)
-                if not gift_card.is_valid:
-                    return Response(
-                        {'error': 'Gift card is no longer valid'},
-                        status=status.HTTP_400_BAD_REQUEST
+                with transaction.atomic():
+                    # Lock the gift card row to prevent concurrent checkouts
+                    # from both reading the full balance (double-spend)
+                    gift_card = GiftCard.objects.select_for_update().get(
+                        code=gift_card_code
                     )
-                # Calculate how much of the gift card to use
-                cart_total = cart.subtotal
-                gift_card_amount = min(gift_card.remaining_balance, cart_total)
+                    if not gift_card.is_valid:
+                        return Response(
+                            {'error': 'Gift card is no longer valid'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    # Reserve the amount by deducting now; refunded if
+                    # checkout expires without completing payment
+                    cart_total = cart.subtotal
+                    gift_card_amount = min(gift_card.remaining_balance, cart_total)
+                    if gift_card_amount > 0:
+                        gift_card.remaining_balance -= gift_card_amount
+                        if gift_card.remaining_balance == 0:
+                            gift_card.is_active = False
+                        gift_card.save(update_fields=['remaining_balance', 'is_active'])
             except GiftCard.DoesNotExist:
                 return Response(
                     {'error': 'Gift card not found'},
@@ -197,6 +208,10 @@ class StripeWebhookView(APIView):
             else:
                 self.handle_checkout_completed(session)
 
+        elif event['type'] == 'checkout.session.expired':
+            session = event['data']['object']
+            self.handle_checkout_expired(session)
+
         return HttpResponse(status=200)
 
     def handle_checkout_completed(self, session):
@@ -250,23 +265,20 @@ class StripeWebhookView(APIView):
             else:
                 self._create_order_items_from_cart(order, cart)
 
-            # Redeem gift card with row locking to prevent double-spend
+            # Gift card balance was already deducted at checkout creation
+            # time (with select_for_update to prevent double-spend).
+            # Here we just create the audit record.
             gift_card_code = metadata.get('gift_card_code')
             gift_card_amount = metadata.get('gift_card_amount')
             if gift_card_code and gift_card_amount:
                 try:
-                    # select_for_update locks the row until transaction commits
-                    gift_card = GiftCard.objects.select_for_update().get(
-                        code=gift_card_code
-                    )
+                    gift_card = GiftCard.objects.get(code=gift_card_code)
                     amount = Decimal(gift_card_amount)
-                    redeemed = gift_card.redeem(amount)
-                    if redeemed > 0:
-                        GiftCardRedemption.objects.create(
-                            gift_card=gift_card,
-                            order=order,
-                            amount=redeemed,
-                        )
+                    GiftCardRedemption.objects.create(
+                        gift_card=gift_card,
+                        order=order,
+                        amount=amount,
+                    )
                 except GiftCard.DoesNotExist:
                     logger.warning(f"Gift card {gift_card_code} not found during redemption")
                 except Exception:
@@ -382,6 +394,33 @@ class StripeWebhookView(APIView):
                             f"Insufficient stock for product {item.product.id} "
                             f"(requested {item.quantity})"
                         )
+
+    def handle_checkout_expired(self, session):
+        """Refund reserved gift card balance when a checkout session expires."""
+        metadata = session.get('metadata', {})
+        gift_card_code = metadata.get('gift_card_code')
+        gift_card_amount = metadata.get('gift_card_amount')
+
+        if not gift_card_code or not gift_card_amount:
+            return
+
+        amount = Decimal(gift_card_amount)
+        with transaction.atomic():
+            try:
+                gift_card = GiftCard.objects.select_for_update().get(
+                    code=gift_card_code
+                )
+                gift_card.remaining_balance += amount
+                gift_card.is_active = True
+                gift_card.save(update_fields=['remaining_balance', 'is_active'])
+                logger.info(
+                    f"Refunded ${amount} to gift card {gift_card.code} "
+                    f"after expired checkout session {session['id']}"
+                )
+            except GiftCard.DoesNotExist:
+                logger.warning(
+                    f"Gift card {gift_card_code} not found for expired session refund"
+                )
 
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
