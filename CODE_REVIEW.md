@@ -366,14 +366,14 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 ### LOW
 
 ### 48. React dependency array issues in ChatWindow
-- **Status:** TODO
+- **Status:** DONE - Moved `welcomeMessage` to module scope, added `isLoading` to history effect dependency array
 - **File:** `frontend/src/components/chat/ChatWindow.tsx` (~lines 64-69, 138, 146)
 - **What's wrong:** `welcomeMessage` is defined inside the component body (recreated every render) and referenced in effects but omitted from dependency arrays. `isLoading` is also used in the history effect but not in its dependency array. Could cause skipped or doubled history loads.
 - **Fix:** Move `welcomeMessage` outside the component or wrap in `useMemo`. Add missing dependencies to effect arrays.
 - **Why:** React correctness. Could cause subtle bugs with concurrent renders.
 
 ### 49. Frontend `tracking_url` type is dead code
-- **Status:** TODO
+- **Status:** WONTFIX - Harmless forward-compatible code. The optional `tracking_url` field in the frontend type and UI template will activate automatically if the backend adds it later.
 - **File:** `frontend/src/app/track-order/page.tsx` (~lines 6-12), `backend/apps/orders/views.py` (~lines 167-183)
 - **What's wrong:** Frontend types declare `tracking_url?: string` and render a link if present, but the backend `OrderTrackingView` never returns this field. The code path is dead.
 - **Fix:** Either implement tracking URL support in the backend, or remove the dead frontend code.

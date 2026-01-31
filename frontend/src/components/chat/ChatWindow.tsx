@@ -55,19 +55,19 @@ interface ChatWindowProps {
   onNewMessage: () => void;
 }
 
+const welcomeMessage: Message = {
+  id: 'welcome',
+  role: 'assistant',
+  content:
+    "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
+};
+
 export default function ChatWindow({
   conversationId,
   onConversationIdChange,
   onClose,
   onNewMessage,
 }: ChatWindowProps) {
-  const welcomeMessage: Message = {
-    id: 'welcome',
-    role: 'assistant',
-    content:
-      "Hi! I'm here to help you find the perfect print for your space. You can tell me what you're looking for, upload a photo of your room to see how prints would look, or just browse and ask questions. What can I help you with today?",
-  };
-
   const [messages, setMessages] = useState<Message[]>([welcomeMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +143,7 @@ export default function ChatWindow({
           // If loading history fails, start fresh
         });
     }
-  }, [conversationId, historyLoaded]);
+  }, [conversationId, historyLoaded, isLoading]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
