@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getCart, updateCartItem, removeCartItem, createCheckoutSession, checkGiftCard } from '@/lib/api';
-import type { Cart } from '@/types';
+import { updateCartItem, removeCartItem, createCheckoutSession, checkGiftCard } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
 
 export default function CartPage() {
-  const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { cart, loading, refreshCart } = useCart();
   const [updating, setUpdating] = useState<number | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -18,27 +17,12 @@ export default function CartPage() {
   const [giftCardError, setGiftCardError] = useState('');
   const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
-  const fetchCart = async () => {
-    try {
-      const data = await getCart();
-      setCart(data);
-    } catch (error) {
-      console.error('Failed to fetch cart:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
   const handleUpdateQuantity = async (itemId: number, quantity: number) => {
     if (quantity < 1) return;
     setUpdating(itemId);
     try {
       await updateCartItem(itemId, quantity);
-      await fetchCart();
+      await refreshCart();
     } catch (error) {
       console.error('Failed to update quantity:', error);
     } finally {
@@ -50,7 +34,7 @@ export default function CartPage() {
     setUpdating(itemId);
     try {
       await removeCartItem(itemId);
-      await fetchCart();
+      await refreshCart();
     } catch (error) {
       console.error('Failed to remove item:', error);
     } finally {

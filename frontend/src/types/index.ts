@@ -66,9 +66,12 @@ export interface CartItem {
 }
 
 export interface Cart {
+  id: string;
   items: CartItem[];
+  total_items: number;
   subtotal: string;
-  item_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Order {

@@ -1,18 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { getCart } from '@/lib/api';
+import { useState } from 'react';
+import { useCart } from '@/contexts/CartContext';
 
 export default function Header() {
-  const [cartCount, setCartCount] = useState(0);
+  const { itemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    getCart()
-      .then((cart) => setCartCount(cart.item_count))
-      .catch(() => setCartCount(0));
-  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-100 dark:border-gray-800">
@@ -42,9 +36,9 @@ export default function Header() {
             </Link>
             <Link href="/cart" className="relative text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition">
               Cart
-              {cartCount > 0 && (
+              {itemCount > 0 && (
                 <span className="absolute -top-2 -right-4 bg-blue-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {cartCount}
+                  {itemCount}
                 </span>
               )}
             </Link>
@@ -85,7 +79,7 @@ export default function Header() {
                 Contact
               </Link>
               <Link href="/cart" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" onClick={() => setMobileMenuOpen(false)}>
-                Cart {cartCount > 0 && `(${cartCount})`}
+                Cart {itemCount > 0 && `(${itemCount})`}
               </Link>
             </div>
           </div>
