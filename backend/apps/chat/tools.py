@@ -684,6 +684,11 @@ def analyze_room_image(image_url: str) -> dict:
             'suggestion': 'Tell me your wall width and I can recommend the perfect print size.',
         }
 
+    # SSRF protection: only fetch images from our own S3 bucket
+    allowed_domain = settings.AWS_S3_CUSTOM_DOMAIN
+    if allowed_domain and not image_url.startswith(f'https://{allowed_domain}/'):
+        return {'error': 'Invalid image URL. Please upload your room photo using the upload button.'}
+
     try:
         import requests
         from io import BytesIO
@@ -691,7 +696,7 @@ def analyze_room_image(image_url: str) -> dict:
         from apps.mockup.models import WallAnalysis
         from apps.mockup.tasks import analyze_wall_image
 
-        # Download image from URL
+        # Download image from our S3 bucket
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
 
