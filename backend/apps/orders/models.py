@@ -124,7 +124,18 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.order_number:
-            self.order_number = self._generate_order_number()
+            from django.db import IntegrityError
+            # Retry up to 5 times if concurrent orders produce a collision
+            for attempt in range(5):
+                self.order_number = self._generate_order_number()
+                try:
+                    super().save(*args, **kwargs)
+                    return
+                except IntegrityError:
+                    if attempt == 4:
+                        raise
+                    self.order_number = ''  # Reset to regenerate
+                    continue
         super().save(*args, **kwargs)
 
     def _generate_order_number(self):
