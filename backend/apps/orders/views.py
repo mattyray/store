@@ -9,7 +9,6 @@ from .serializers import (
     CartItemSerializer,
     AddToCartSerializer,
     UpdateCartItemSerializer,
-    OrderSerializer,
 )
 
 

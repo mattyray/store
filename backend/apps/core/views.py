@@ -1,18 +1,14 @@
 import stripe
-from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.orders.emails import send_contact_form_notification
 from .models import Subscriber, GiftCard
-from .emails import send_gift_card_email
 from .mailerlite import add_subscriber_to_mailerlite
 
 

@@ -5,13 +5,12 @@ Uses Claude as the LLM with tool-calling capabilities.
 """
 import json
 import uuid
-from typing import Generator, Any
+from typing import Generator
 
 from django.conf import settings
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from .prompts import SYSTEM_PROMPT
 from .tools import ALL_TOOLS

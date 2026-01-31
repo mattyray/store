@@ -1,10 +1,8 @@
 import base64
 import logging
 import uuid
-from io import BytesIO
 
 from django.core.files.base import ContentFile
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response

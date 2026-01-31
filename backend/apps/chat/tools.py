@@ -5,7 +5,6 @@ Each tool is a function the agent can call to take actions
 like searching photos, managing cart, generating mockups, etc.
 """
 from typing import Optional
-from decimal import Decimal
 
 from django.conf import settings
 from django.db.models import Q
@@ -691,7 +690,6 @@ def analyze_room_image(image_url: str) -> dict:
 
     try:
         import requests
-        from io import BytesIO
         from django.core.files.base import ContentFile
         from apps.mockup.models import WallAnalysis
         from apps.mockup.tasks import analyze_wall_image
