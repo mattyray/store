@@ -20,7 +20,11 @@ def get_or_create_cart(request):
 
     session_key = request.session.session_key
     cart, created = Cart.objects.get_or_create(session_key=session_key)
-    return cart
+    # Prefetch related objects to avoid N+1 queries during serialization
+    return Cart.objects.prefetch_related(
+        'items__variant__photo',
+        'items__product',
+    ).get(pk=cart.pk)
 
 
 class CartView(APIView):
@@ -78,6 +82,8 @@ class CartItemView(APIView):
             cart_item.quantity += quantity
             cart_item.save()
 
+        # Re-fetch with fresh prefetch cache after modification
+        cart = get_or_create_cart(request)
         return Response(
             CartSerializer(cart, context={'request': request}).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
@@ -112,7 +118,9 @@ class CartItemDetailView(APIView):
         cart_item.quantity = serializer.validated_data['quantity']
         cart_item.save()
 
-        return Response(CartSerializer(cart_item.cart, context={'request': request}).data)
+        # Re-fetch with prefetch for serialization
+        cart = get_or_create_cart(request)
+        return Response(CartSerializer(cart, context={'request': request}).data)
 
     def delete(self, request, item_id):
         """Remove item from cart."""
@@ -123,9 +131,10 @@ class CartItemDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        cart = cart_item.cart
         cart_item.delete()
 
+        # Re-fetch with prefetch for serialization
+        cart = get_or_create_cart(request)
         return Response(CartSerializer(cart, context={'request': request}).data)
 
 

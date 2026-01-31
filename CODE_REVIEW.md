@@ -71,21 +71,21 @@ Delete this file once all issues are addressed.
 ## HIGH - Performance & SEO
 
 ### 9. Photo detail page is entirely client-rendered (no SSR)
-- **Status:** Not started
+- **Status:** DONE - Converted to async server component + `PhotoDetailClient` client component. Data fetched server-side, interactive parts (variant selector, cart, mockup) in client component.
 - **File:** `frontend/src/app/photos/[slug]/page.tsx`
 - **What's wrong:** The page is marked `'use client'` and fetches data in a `useEffect`. This means: (a) Google sees an empty page until JS loads — no SEO for your most important product pages; (b) no Open Graph meta tags for social sharing; (c) slower perceived load time (spinner → content).
 - **Fix:** Convert to a server component. Use `generateMetadata()` for dynamic title/description/OG tags. Fetch photo data server-side. Keep interactive parts (variant selector, add-to-cart, mockup tool) as separate client components.
 - **Why:** These are the pages you most need Google to index. "Matthew Raynor Montauk sunset print" should lead to the photo page. Currently Google sees a blank spinner.
 
 ### 10. No Open Graph / Twitter Card metadata
-- **Status:** Not started
+- **Status:** DONE - Added `openGraph`/`twitter` to root layout, photo detail `generateMetadata()`, and collection detail `generateMetadata()`
 - **Files:** `frontend/src/app/layout.tsx`, page files
 - **What's wrong:** When someone shares a link to your store on social media, there's no preview image, title, or description. The root layout has basic metadata but no `openGraph` or `twitter` fields. Individual pages have no metadata at all.
 - **Fix:** Add `openGraph` and `twitter` to root layout metadata. Add `generateMetadata()` to dynamic pages (photos, collections, book) that returns page-specific titles, descriptions, and images.
 - **Why:** Social sharing is free marketing. A shared link with a beautiful photo preview vs. a blank box is a significant difference for an art store.
 
 ### 11. N+1 queries on cart serialization
-- **Status:** Not started
+- **Status:** DONE - Added `prefetch_related('items__variant__photo', 'items__product')` to `get_or_create_cart`
 - **Files:** `backend/apps/orders/views.py`, `backend/apps/orders/serializers.py`
 - **What's wrong:** When serializing a cart, each CartItem accesses its related `variant` and `product` objects. Without `prefetch_related`, this triggers a separate database query per cart item.
 - **Fix:** In `get_or_create_cart`, prefetch related objects: `Cart.objects.prefetch_related('items__variant__photo', 'items__product').get_or_create(...)`.
