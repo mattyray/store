@@ -320,7 +320,7 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 - **Why:** Customer pays for a product that's never delivered. Silent failure means no one knows.
 
 ### 42. Chat agent creates orphan carts disconnected from user session
-- **Status:** TODO
+- **Status:** DONE - Removed cart creation fallback with random session keys; now returns error if no valid cart exists
 - **File:** `backend/apps/chat/tools.py` (add_to_cart, ~lines 362-367)
 - **What's wrong:** When `cart_id` doesn't exist in DB, `get_or_create` creates a new cart with a random `session_key` (not the user's actual session). This cart is invisible to the browser session. If invoked before the user has a cart, an orphan is created that the web views will never find.
 - **Fix:** Pass the actual session key from the chat view to the tool. Fall back to finding/creating the session-based cart the same way web views do.

@@ -359,12 +359,13 @@ def add_to_cart(photo_slug: str, variant_id: int, quantity: int = 1, cart_id: st
     try:
         variant = ProductVariant.objects.get(id=variant_id, is_available=True)
 
-        # Get or create cart
-        import uuid
-        if cart_id:
-            cart, _ = Cart.objects.get_or_create(id=cart_id, defaults={'session_key': str(uuid.uuid4())})
-        else:
-            cart = Cart.objects.create(session_key=str(uuid.uuid4()))
+        if not cart_id:
+            return {'error': 'No cart available. Please refresh the page and try again.'}
+
+        try:
+            cart = Cart.objects.get(id=cart_id)
+        except Cart.DoesNotExist:
+            return {'error': 'Cart not found. Please refresh the page and try again.'}
 
         # Check if item already in cart
         cart_item, created = CartItem.objects.get_or_create(
