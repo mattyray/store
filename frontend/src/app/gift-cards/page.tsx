@@ -40,7 +40,7 @@ export default function GiftCardsPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">Gift Cards</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Give the gift of fine art photography. Perfect for any occasion.
         </p>
       </div>
@@ -57,8 +57,8 @@ export default function GiftCardsPage() {
                 onClick={() => setSelectedAmount(amount)}
                 className={`py-3 rounded border text-sm font-medium transition ${
                   selectedAmount === amount
-                    ? 'border-blue-600 bg-blue-50 text-blue-600'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 ${amount}
@@ -72,23 +72,23 @@ export default function GiftCardsPage() {
           <h3 className="text-sm font-medium">Recipient Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Email *</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Email *</label>
               <input
                 type="email"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="recipient@email.com"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input
                 type="text"
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Recipient's name"
               />
             </div>
@@ -100,23 +100,23 @@ export default function GiftCardsPage() {
           <h3 className="text-sm font-medium">Your Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Email *</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Email *</label>
               <input
                 type="email"
                 value={purchaserEmail}
                 onChange={(e) => setPurchaserEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="your@email.com"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input
                 type="text"
                 value={purchaserName}
                 onChange={(e) => setPurchaserName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Your name"
               />
             </div>
@@ -131,10 +131,10 @@ export default function GiftCardsPage() {
             onChange={(e) => setMessage(e.target.value)}
             rows={3}
             maxLength={500}
-            className="w-full px-4 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Add a personal message to include with the gift card..."
           />
-          <p className="text-xs text-gray-500 mt-1">{message.length}/500 characters</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{message.length}/500 characters</p>
         </div>
 
         {error && (
@@ -149,7 +149,7 @@ export default function GiftCardsPage() {
           {loading ? 'Processing...' : `Purchase $${selectedAmount} Gift Card`}
         </button>
 
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
           The recipient will receive their gift card via email immediately after purchase.
           Gift cards are valid for one year from the date of purchase.
         </p>

@@ -81,6 +81,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
             type="button"
             onClick={removeImage}
             className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+            aria-label="Remove image"
           >
             &times;
           </button>
@@ -95,6 +96,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
           disabled={isLoading}
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition disabled:opacity-50"
           title="Upload room photo"
+          aria-label="Upload image"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -121,6 +123,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about prints, sizes, or upload a room photo..."
+          aria-label="Type your message"
           disabled={isLoading}
           rows={1}
           className="
@@ -137,6 +140,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
         <button
           type="submit"
           disabled={(!message.trim() && !imageFile) || isLoading}
+          aria-label="Send message"
           className="
             p-2 rounded-lg
             bg-gray-900 dark:bg-gray-100

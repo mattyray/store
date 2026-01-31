@@ -159,6 +159,7 @@ export default function CartPage() {
                       onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                       disabled={updating === item.id || item.quantity <= 1}
                       className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                      aria-label="Decrease quantity"
                     >
                       -
                     </button>
@@ -167,6 +168,7 @@ export default function CartPage() {
                       onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                       disabled={updating === item.id}
                       className="px-3 py-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>

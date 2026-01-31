@@ -30,7 +30,7 @@ export default async function CollectionsPage() {
       </div>
 
       {collections.length === 0 ? (
-        <p className="text-center text-gray-500">No collections available yet.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No collections available yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {collections.map((collection) => (
@@ -39,7 +39,7 @@ export default async function CollectionsPage() {
               href={`/collections/${collection.slug}`}
               className="group block"
             >
-              <div className="relative aspect-[16/9] overflow-hidden bg-gray-200 rounded">
+              <div className="relative aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700 rounded">
                 {collection.cover_image ? (
                   <Image
                     src={collection.cover_image}

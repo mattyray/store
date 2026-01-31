@@ -11,7 +11,7 @@ class Collection(models.Model):
     cover_image = models.ImageField(upload_to='collections/', blank=True)
     is_limited_edition = models.BooleanField(default=False)
     display_order = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,8 +64,8 @@ class Photo(models.Model):
     date_taken = models.DateField(null=True, blank=True)
     image_width = models.PositiveIntegerField(null=True, blank=True, editable=False)
     image_height = models.PositiveIntegerField(null=True, blank=True, editable=False)
-    is_featured = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -220,8 +220,8 @@ class Product(models.Model):
     weight_oz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     stock_quantity = models.PositiveIntegerField(default=0)
     track_inventory = models.BooleanField(default=True)
-    is_featured = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
 
     # Book-specific fields
     author = models.CharField(max_length=200, blank=True)

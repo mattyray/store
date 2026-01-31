@@ -56,7 +56,7 @@ export default function BookDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-600 dark:border-t-gray-100 rounded-full animate-spin" />
       </div>
     );
   }
@@ -64,7 +64,7 @@ export default function BookDetailPage() {
   if (!book) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <p className="text-gray-500 mb-4">Book not found</p>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">Book not found</p>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function BookDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Book Image */}
-        <div className="relative aspect-[3/4] bg-gray-100 rounded overflow-hidden">
+        <div className="relative aspect-[3/4] bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
           {book.image ? (
             <Image
               src={book.image}
@@ -92,21 +92,21 @@ export default function BookDetailPage() {
 
         {/* Book Details */}
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
             {book.product_type_display}
           </p>
           <h1 className="text-3xl font-light tracking-wide mb-2">{book.title}</h1>
           {book.author && (
-            <p className="text-lg text-gray-600 mb-4">by {book.author}</p>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">by {book.author}</p>
           )}
 
           {book.description && (
-            <p className="text-gray-600 mb-6 leading-relaxed">{book.description}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{book.description}</p>
           )}
 
           {book.long_description && (
             <div className="mb-8 prose prose-gray max-w-none">
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+              <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
                 {book.long_description}
               </p>
             </div>
@@ -117,7 +117,7 @@ export default function BookDetailPage() {
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-medium">${book.price}</span>
               {book.is_on_sale && book.compare_at_price && (
-                <span className="text-lg text-gray-400 line-through">
+                <span className="text-lg text-gray-400 dark:text-gray-500 line-through">
                   ${book.compare_at_price}
                 </span>
               )}
@@ -131,17 +131,19 @@ export default function BookDetailPage() {
           {book.is_in_stock && (
             <div className="mb-6">
               <label className="text-sm font-medium mb-2 block">Quantity</label>
-              <div className="flex items-center border border-gray-200 rounded w-fit">
+              <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded w-fit">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Decrease quantity"
                 >
                   -
                 </button>
                 <span className="px-4 py-2 min-w-[50px] text-center">{quantity}</span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label="Increase quantity"
                 >
                   +
                 </button>
@@ -165,9 +167,9 @@ export default function BookDetailPage() {
           )}
 
           {/* Book Details */}
-          <div className="mt-8 pt-8 border-t border-gray-200 space-y-3 text-sm">
-            <h4 className="font-medium text-gray-900">Details</h4>
-            <dl className="grid grid-cols-2 gap-2 text-gray-600">
+          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 space-y-3 text-sm">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100">Details</h4>
+            <dl className="grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-400">
               {book.publisher && (
                 <>
                   <dt className="font-medium">Publisher</dt>
@@ -202,8 +204,8 @@ export default function BookDetailPage() {
           </div>
 
           {/* Shipping Info */}
-          <div className="mt-6 pt-6 border-t border-gray-200 text-sm text-gray-600">
-            <h4 className="font-medium text-gray-900 mb-2">Shipping</h4>
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Shipping</h4>
             <p>Free shipping on orders over $500. Most orders ship within 3-5 business days.</p>
           </div>
         </div>

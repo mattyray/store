@@ -22,7 +22,7 @@ class WallAnalysis(models.Model):
     original_height = models.PositiveIntegerField(null=True, blank=True)
 
     # Processing status
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
     error_message = models.TextField(blank=True)
 
     # ML Results (populated after processing)

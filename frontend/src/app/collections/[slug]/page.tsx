@@ -49,17 +49,17 @@ export default async function CollectionPage({ params }: Props) {
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">{collection.name}</h1>
         {collection.description && (
-          <p className="text-gray-600 max-w-2xl mx-auto">{collection.description}</p>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">{collection.description}</p>
         )}
         {collection.is_limited_edition && (
-          <span className="inline-block mt-4 px-3 py-1 bg-gray-900 text-white text-sm rounded">
+          <span className="inline-block mt-4 px-3 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm rounded">
             Limited Edition
           </span>
         )}
       </div>
 
       {collection.photos?.length === 0 ? (
-        <p className="text-center text-gray-500">No photos in this collection yet.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No photos in this collection yet.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {collection.photos?.map((photo) => (

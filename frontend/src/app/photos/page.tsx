@@ -39,7 +39,7 @@ export default function PhotosPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
         <h1 className="text-3xl font-light tracking-wide mb-4">Shop All Prints</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Browse our complete collection of fine art photography prints.
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function PhotosPage() {
         <select
           value={filters.orientation}
           onChange={(e) => setFilters({ ...filters, orientation: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Orientations</option>
           <option value="horizontal">Horizontal</option>
@@ -60,7 +60,7 @@ export default function PhotosPage() {
         <select
           value={filters.material}
           onChange={(e) => setFilters({ ...filters, material: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Materials</option>
           <option value="paper">Archival Paper</option>
@@ -70,7 +70,7 @@ export default function PhotosPage() {
         <select
           value={filters.ordering}
           onChange={(e) => setFilters({ ...filters, ordering: e.target.value })}
-          className="px-4 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="-created_at">Newest First</option>
           <option value="created_at">Oldest First</option>
@@ -82,10 +82,10 @@ export default function PhotosPage() {
 
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+          <div className="inline-block w-8 h-8 border-2 border-gray-300 border-t-gray-900 dark:border-gray-600 dark:border-t-gray-100 rounded-full animate-spin" />
         </div>
       ) : photos.length === 0 ? (
-        <p className="text-center text-gray-500">No photos found.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No photos found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {photos.map((photo) => (

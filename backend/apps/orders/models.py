@@ -96,15 +96,16 @@ class Order(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=20, unique=True, editable=False)
-    stripe_checkout_id = models.CharField(max_length=200, blank=True)
-    stripe_payment_intent = models.CharField(max_length=200, blank=True)
-    customer_email = models.EmailField()
+    stripe_checkout_id = models.CharField(max_length=200, blank=True, db_index=True)
+    stripe_payment_intent = models.CharField(max_length=200, blank=True, db_index=True)
+    customer_email = models.EmailField(db_index=True)
     customer_name = models.CharField(max_length=200)
     shipping_address = models.JSONField(default=dict)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='pending'
+        default='pending',
+        db_index=True,
     )
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     shipping_cost = models.DecimalField(max_digits=8, decimal_places=2, default=0)

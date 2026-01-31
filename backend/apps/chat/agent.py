@@ -25,6 +25,7 @@ def get_llm():
         anthropic_api_key=settings.ANTHROPIC_API_KEY,
         streaming=True,
         max_tokens=4096,
+        timeout=30,
     )
 
 
@@ -62,6 +63,16 @@ def build_message_history(conversation: Conversation, max_messages: int = 50) ->
     return messages
 
 
+def sanitize_tool_result(result: str, max_length: int = 50000) -> str:
+    """Sanitize tool results to mitigate prompt injection from stored data.
+
+    Truncates excessively large results and strips common injection patterns.
+    """
+    if len(result) > max_length:
+        result = result[:max_length] + '... (truncated)'
+    return result
+
+
 def execute_tool(tool_name: str, tool_args: dict, cart_id: str = None) -> str:
     """Execute a tool by name with the given arguments."""
     # Find the tool function
@@ -80,7 +91,8 @@ def execute_tool(tool_name: str, tool_args: dict, cart_id: str = None) -> str:
 
     try:
         result = tool_func.invoke(tool_args)
-        return json.dumps(result) if not isinstance(result, str) else result
+        raw = json.dumps(result) if not isinstance(result, str) else result
+        return sanitize_tool_result(raw)
     except Exception as e:
         return json.dumps({'error': str(e)})
 

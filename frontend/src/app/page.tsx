@@ -76,7 +76,7 @@ export default async function HomePage() {
                   href={`/collections/${collection.slug}`}
                   className="group block"
                 >
-                  <div className="relative aspect-[3/2] overflow-hidden bg-gray-200 rounded-sm">
+                  <div className="relative aspect-[3/2] overflow-hidden bg-gray-200 dark:bg-gray-700 rounded-sm">
                     {collection.cover_image ? (
                       <Image
                         src={collection.cover_image}

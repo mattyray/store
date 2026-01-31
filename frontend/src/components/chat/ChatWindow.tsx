@@ -74,7 +74,6 @@ export default function ChatWindow({
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load chat history when conversation ID exists
   // But DON'T load if we're currently loading (streaming a response)
@@ -330,6 +329,7 @@ export default function ChatWindow({
             onClick={handleNewConversation}
             className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
             title="New conversation"
+            aria-label="Start new conversation"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -339,6 +339,7 @@ export default function ChatWindow({
             onClick={onClose}
             className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
             title="Close"
+            aria-label="Close chat"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

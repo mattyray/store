@@ -62,7 +62,7 @@ class GiftCard(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
 
     # Payment
-    stripe_payment_intent = models.CharField(max_length=200, blank=True)
+    stripe_payment_intent = models.CharField(max_length=200, blank=True, db_index=True)
 
     class Meta:
         ordering = ['-purchased_at']

@@ -222,6 +222,7 @@ export default function WallCanvas({
           hasControls: true,
           hasBorders: true,
           lockRotation: true,
+          lockUniScaling: true,
           cornerColor: '#3b82f6',
           cornerStyle: 'circle',
           borderColor: '#3b82f6',
@@ -288,6 +289,7 @@ export default function WallCanvas({
           onClick={handleRemoveSelected}
           className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-lg flex items-center gap-1"
           title="Remove selected print"
+          aria-label="Remove selected print"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

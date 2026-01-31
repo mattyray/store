@@ -20,7 +20,7 @@ from apps.core.models import GiftCard
 
 def get_openai_client():
     """Get OpenAI client for embeddings."""
-    return OpenAI(api_key=settings.OPENAI_API_KEY)
+    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=10)
 
 
 def get_absolute_url(file_field):
@@ -764,8 +764,6 @@ def generate_mockup(
     Returns:
         Mockup data with wall image and placement info, or error
     """
-    import time
-
     try:
         from apps.mockup.models import WallAnalysis
 
@@ -813,27 +811,20 @@ def generate_mockup(
                 'error': f'Could not find a {material} variant in size {size} for "{photo.title}". Available options: {", ".join(available_list)}',
             }
 
-        # Wait for analysis to complete (poll for up to 30 seconds)
-        max_wait = 30
-        poll_interval = 1
-        waited = 0
+        # Refresh to check current status without blocking
+        analysis.refresh_from_db()
 
-        while analysis.status in ('pending', 'processing') and waited < max_wait:
-            time.sleep(poll_interval)
-            waited += poll_interval
-            analysis.refresh_from_db()
-
-        # Check final status
         if analysis.status == 'failed':
             return {
                 'error': 'Wall detection failed. Please try uploading a different room photo.',
                 'status': 'failed',
             }
 
-        if analysis.status not in ('completed', 'manual'):
+        if analysis.status in ('pending', 'processing'):
             return {
-                'error': 'Wall analysis timed out. Please try again.',
-                'status': analysis.status,
+                'status': 'processing',
+                'analysis_id': str(analysis.id),
+                'message': 'Wall analysis is still processing. The mockup tool on the page will show the result when ready. Please let the customer know to check the "See In Your Room" tool.',
             }
 
         # Return mockup data for frontend rendering
