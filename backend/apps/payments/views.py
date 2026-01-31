@@ -1,7 +1,9 @@
+import logging
 import stripe
 from decimal import Decimal
 
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -14,6 +16,8 @@ from apps.orders.views import get_or_create_cart
 from apps.orders.emails import send_order_confirmation
 from apps.core.models import GiftCard, GiftCardRedemption, Subscriber
 from apps.core.emails import send_gift_card_email, send_gift_card_purchase_confirmation
+
+logger = logging.getLogger(__name__)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -168,6 +172,11 @@ class StripeWebhookView(APIView):
 
     def handle_checkout_completed(self, session):
         """Create order from completed checkout session."""
+        # Idempotency: skip if we already processed this session
+        if Order.objects.filter(stripe_checkout_id=session['id']).exists():
+            logger.info(f"Order already exists for session {session['id']}, skipping")
+            return
+
         metadata = session.get('metadata', {})
         cart_id = metadata.get('cart_id')
         if not cart_id:
@@ -181,75 +190,83 @@ class StripeWebhookView(APIView):
         shipping = session.get('shipping_details', {})
         address = shipping.get('address', {})
 
-        order = Order.objects.create(
-            stripe_checkout_id=session['id'],
-            stripe_payment_intent=session.get('payment_intent') or '',
-            customer_email=session.get('customer_details', {}).get('email', ''),
-            customer_name=shipping.get('name', ''),
-            shipping_address={
-                'line1': address.get('line1', ''),
-                'line2': address.get('line2', ''),
-                'city': address.get('city', ''),
-                'state': address.get('state', ''),
-                'postal_code': address.get('postal_code', ''),
-                'country': address.get('country', ''),
-            },
-            status='paid',
-            subtotal=cart.subtotal,
-            total=session.get('amount_total', 0) / 100,
-        )
+        # Wrap order creation, items, gift card redemption, and cart
+        # cleanup in a single transaction for data consistency
+        with transaction.atomic():
+            order = Order.objects.create(
+                stripe_checkout_id=session['id'],
+                stripe_payment_intent=session.get('payment_intent') or '',
+                customer_email=session.get('customer_details', {}).get('email', ''),
+                customer_name=shipping.get('name', ''),
+                shipping_address={
+                    'line1': address.get('line1', ''),
+                    'line2': address.get('line2', ''),
+                    'city': address.get('city', ''),
+                    'state': address.get('state', ''),
+                    'postal_code': address.get('postal_code', ''),
+                    'country': address.get('country', ''),
+                },
+                status='paid',
+                subtotal=cart.subtotal,
+                total=session.get('amount_total', 0) / 100,
+            )
 
-        for item in cart.items.select_related('variant__photo', 'product'):
-            if item.variant:
-                OrderItem.objects.create(
-                    order=order,
-                    variant=item.variant,
-                    item_title=item.variant.photo.title,
-                    item_description=item.variant.display_name,
-                    quantity=item.quantity,
-                    unit_price=item.variant.price,
-                    total_price=item.total_price,
-                )
-            elif item.product:
-                OrderItem.objects.create(
-                    order=order,
-                    product=item.product,
-                    item_title=item.product.title,
-                    item_description=item.product.get_product_type_display(),
-                    quantity=item.quantity,
-                    unit_price=item.product.price,
-                    total_price=item.total_price,
-                )
-                # Decrement stock if tracking inventory
-                if item.product.track_inventory:
-                    item.product.stock_quantity -= item.quantity
-                    item.product.save()
-
-        # Redeem gift card if one was used
-        gift_card_code = metadata.get('gift_card_code')
-        gift_card_amount = metadata.get('gift_card_amount')
-        if gift_card_code and gift_card_amount:
-            try:
-                gift_card = GiftCard.objects.get(code=gift_card_code)
-                amount = Decimal(gift_card_amount)
-                # Redeem the gift card and create redemption record
-                redeemed = gift_card.redeem(amount)
-                if redeemed > 0:
-                    GiftCardRedemption.objects.create(
-                        gift_card=gift_card,
+            for item in cart.items.select_related('variant__photo', 'product'):
+                if item.variant:
+                    OrderItem.objects.create(
                         order=order,
-                        amount=redeemed,
+                        variant=item.variant,
+                        item_title=item.variant.photo.title,
+                        item_description=item.variant.display_name,
+                        quantity=item.quantity,
+                        unit_price=item.variant.price,
+                        total_price=item.total_price,
                     )
-            except (GiftCard.DoesNotExist, Exception):
-                pass  # Don't fail the order if gift card redemption fails
+                elif item.product:
+                    OrderItem.objects.create(
+                        order=order,
+                        product=item.product,
+                        item_title=item.product.title,
+                        item_description=item.product.get_product_type_display(),
+                        quantity=item.quantity,
+                        unit_price=item.product.price,
+                        total_price=item.total_price,
+                    )
+                    # Decrement stock if tracking inventory
+                    if item.product.track_inventory:
+                        item.product.stock_quantity -= item.quantity
+                        item.product.save()
 
-        cart.items.all().delete()
+            # Redeem gift card with row locking to prevent double-spend
+            gift_card_code = metadata.get('gift_card_code')
+            gift_card_amount = metadata.get('gift_card_amount')
+            if gift_card_code and gift_card_amount:
+                try:
+                    # select_for_update locks the row until transaction commits
+                    gift_card = GiftCard.objects.select_for_update().get(
+                        code=gift_card_code
+                    )
+                    amount = Decimal(gift_card_amount)
+                    redeemed = gift_card.redeem(amount)
+                    if redeemed > 0:
+                        GiftCardRedemption.objects.create(
+                            gift_card=gift_card,
+                            order=order,
+                            amount=redeemed,
+                        )
+                except GiftCard.DoesNotExist:
+                    logger.warning(f"Gift card {gift_card_code} not found during redemption")
+                except Exception:
+                    logger.exception("Gift card redemption failed")
 
-        # Send confirmation email
+            cart.items.all().delete()
+
+        # Send confirmation email (outside transaction — don't rollback
+        # the order if email fails)
         try:
             send_order_confirmation(order)
         except Exception:
-            pass  # Don't fail the order if email fails
+            logger.exception(f"Failed to send confirmation email for order {order.order_number}")
 
         # Add customer to newsletter subscriber list
         if order.customer_email:
@@ -262,7 +279,7 @@ class StripeWebhookView(APIView):
                     }
                 )
             except Exception:
-                pass  # Don't fail if subscriber creation fails
+                pass
 
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
