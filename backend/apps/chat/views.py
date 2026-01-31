@@ -188,14 +188,19 @@ def chat_sync(request):
     image_url = body.get('image_url')
     cart_id = body.get('cart_id') or get_cart_id_from_request(request)
 
+    # Ensure session exists for ownership tracking
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+
     # Get or create conversation
     if conversation_id:
         try:
             conversation = Conversation.objects.get(id=conversation_id)
         except (Conversation.DoesNotExist, ValueError):
-            conversation = Conversation.objects.create()
+            conversation = Conversation.objects.create(session_key=session_key)
     else:
-        conversation = Conversation.objects.create()
+        conversation = Conversation.objects.create(session_key=session_key)
 
     try:
         response_text = run_agent_sync(

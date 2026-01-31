@@ -247,7 +247,7 @@ Bugs and gaps found during verification of the above fixes.
 - **Why:** Stripe retries webhooks. Under slow responses, concurrent retries are realistic.
 
 ### 33. `chat_sync` creates conversations without `session_key`
-- **Status:** TODO
+- **Status:** DONE - Added session key handling to `chat_sync` matching `chat_stream` pattern
 - **File:** `backend/apps/chat/views.py` (chat_sync, ~line 196)
 - **What's wrong:** `chat_sync` calls `Conversation.objects.create()` without `session_key`. The ownership check in `chat_history` skips validation when `session_key` is empty, so these conversations are readable by anyone who knows the UUID.
 - **Fix:** Add session key handling to `chat_sync` the same way `chat_stream` does.
