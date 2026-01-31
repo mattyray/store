@@ -5,6 +5,8 @@ E-commerce website for fine art photography prints targeting the Hamptons luxury
 
 **Live Site:** https://store.matthewraynor.com
 
+**Active Code Review:** See [CODE_REVIEW.md](CODE_REVIEW.md) for tracked findings and implementation status.
+
 ---
 
 ## Tech Stack
