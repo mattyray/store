@@ -11,56 +11,56 @@ Delete this file once all issues are addressed.
 ## CRITICAL - Security & Data Integrity
 
 ### 1. Race condition on gift card redemption
-- **Status:** Not started
+- **Status:** DONE - Added `select_for_update()` + `transaction.atomic()` in `handle_checkout_completed`
 - **File:** `backend/apps/payments/views.py` (StripeWebhookView.handle_checkout_completed)
 - **What's wrong:** When redeeming a gift card at checkout, the code reads the gift card balance, calculates the deduction, then saves — without locking the row. Two concurrent checkouts using the same gift card could both read the full balance and both deduct, overdrawing the card.
 - **Fix:** Wrap the gift card read + deduct in `transaction.atomic()` with `GiftCard.objects.select_for_update().get(...)` so the row is locked during the operation.
 - **Why:** Financial integrity. A $500 gift card could be used for $1000 worth of orders.
 
 ### 2. Race condition on order number generation
-- **Status:** Not started
+- **Status:** DONE - Added retry loop (up to 5 attempts) on `IntegrityError` in `Order.save()`
 - **File:** `backend/apps/orders/models.py` (_generate_order_number)
 - **What's wrong:** Order numbers use `Order.objects.filter(created_at__date=today).count() + 1` as a sequence. Two orders placed in the same millisecond get the same number.
 - **Fix:** Use a database sequence or `MAX()` query inside `select_for_update`, or catch `IntegrityError` and retry. Simplest: add a `unique=True` constraint on `order_number` and retry on conflict.
 - **Why:** Duplicate order numbers cause confusion in fulfillment and customer service.
 
 ### 3. No transaction wrapping for order creation
-- **Status:** Not started
+- **Status:** DONE - Wrapped order + items + gift card + cart cleanup in `transaction.atomic()`
 - **File:** `backend/apps/payments/views.py` (handle_checkout_completed)
 - **What's wrong:** Order + OrderItems + gift card redemption + cart deletion happen as separate database operations. If the process crashes mid-way (e.g., after creating the Order but before creating OrderItems), the database is left in an inconsistent state.
 - **Fix:** Wrap the entire order creation block in `transaction.atomic()`.
 - **Why:** Data consistency. Partial orders are difficult to diagnose and fix manually.
 
 ### 4. Chat history accessible without ownership check
-- **Status:** Not started
+- **Status:** DONE - Added `session_key` to Conversation model + ownership check in `chat_history` view + migration
 - **File:** `backend/apps/chat/views.py` (chat_history, ~line 165)
 - **What's wrong:** The `chat_history` endpoint accepts a conversation UUID and returns all messages. There's no check that the requesting session owns that conversation. Anyone who guesses or intercepts a conversation ID can read the full chat history.
 - **Fix:** Store `session_key` on the Conversation model. In `chat_history`, verify `conversation.session_key == request.session.session_key`. Return 404 if mismatch.
 - **Why:** Privacy. Chat conversations may contain customer names, emails, order numbers, gift card codes.
 
 ### 5. SSRF vulnerability in analyze_room_image
-- **Status:** Not started
+- **Status:** DONE - Added URL allowlist: only fetches from `AWS_S3_CUSTOM_DOMAIN`
 - **File:** `backend/apps/chat/tools.py` (analyze_room_image tool)
 - **What's wrong:** The tool accepts a user-provided `image_url` and the server fetches it. An attacker could supply internal URLs (e.g., `http://169.254.169.254/latest/meta-data/` on AWS, or `http://localhost:7974/admin/`) to probe internal services.
 - **Fix:** Validate the URL scheme is `https`, resolve the hostname and reject private/internal IP ranges (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost). Or better: don't fetch URLs server-side — the frontend already has the image, have it upload the file directly.
 - **Why:** SSRF is an OWASP Top 10 vulnerability. On Railway/AWS, it can expose cloud metadata credentials.
 
 ### 6. No rate limiting on chat endpoint
-- **Status:** Not started
+- **Status:** DONE - Added 30/hour rate limit via Django cache on `chat_stream`, `chat_sync`, and `upload_chat_image`
 - **File:** `backend/apps/chat/views.py` (chat_stream, chat_sync)
 - **What's wrong:** Each chat request triggers an LLM API call (Claude). There's no throttle — a bot or abusive user could send hundreds of requests and run up your Anthropic bill.
 - **Fix:** Add a custom DRF throttle class (e.g., `'chat': '20/hour'`) and apply it to the chat views. The base settings already have the throttle framework configured.
 - **Why:** Cost protection. A single Claude API call costs ~$0.01-0.10. 10,000 bot requests = $100-1000.
 
 ### 7. Insecure default SECRET_KEY
-- **Status:** Not started
+- **Status:** DONE - Changed to `os.environ['SECRET_KEY']` (crashes on startup if missing)
 - **File:** `backend/config/settings/base.py` (line ~14)
 - **What's wrong:** `SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')`. If the env var is missing in production, Django runs with a known, publicly visible secret key. This allows session forgery, CSRF bypass, and cookie tampering.
 - **Fix:** Remove the default value. Raise an error if `SECRET_KEY` is not set: `SECRET_KEY = os.environ['SECRET_KEY']` (will crash on startup if missing, which is the correct behavior).
 - **Why:** The SECRET_KEY is used to sign sessions, CSRF tokens, and cookies. A known key means an attacker can forge any of these.
 
 ### 8. No upload rate limiting on mockup endpoint
-- **Status:** Not started
+- **Status:** DONE - Added `UploadRateThrottle` (20/hour) to `UploadWallImageView`
 - **File:** `backend/apps/mockup/views.py` (UploadWallImageView)
 - **What's wrong:** The image upload endpoint has file size validation (10MB) but no rate limit. A bot could upload thousands of images, filling S3 storage and consuming Celery worker time.
 - **Fix:** Add a throttle (e.g., `'uploads': '10/hour'`).
@@ -99,7 +99,7 @@ Delete this file once all issues are addressed.
 - **Why:** Reduces redundant API calls, provides instant UI updates when items are added/removed.
 
 ### 13. No Stripe webhook idempotency
-- **Status:** Not started
+- **Status:** DONE - Added `Order.objects.filter(stripe_checkout_id=session['id']).exists()` early return
 - **File:** `backend/apps/payments/views.py` (StripeWebhookView)
 - **What's wrong:** Stripe can retry webhooks if your server responds slowly. The current code doesn't check if an order was already created for a given `checkout.session.completed` event. Replayed events create duplicate orders.
 - **Fix:** Check for existing order with the same `stripe_session_id` before creating. `if Order.objects.filter(stripe_session_id=session.id).exists(): return` early.
