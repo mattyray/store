@@ -1,3 +1,5 @@
+import logging
+
 import stripe
 
 from django.conf import settings
@@ -10,6 +12,8 @@ from rest_framework.throttling import AnonRateThrottle
 from apps.orders.emails import send_contact_form_notification
 from .models import Subscriber, GiftCard
 from .mailerlite import add_subscriber_to_mailerlite
+
+logger = logging.getLogger(__name__)
 
 
 class NewsletterThrottle(AnonRateThrottle):
@@ -215,8 +219,9 @@ class GiftCardPurchaseView(APIView):
             })
 
         except stripe.error.StripeError as e:
+            logger.error(f"Stripe error during gift card purchase: {e}")
             return Response(
-                {'error': str(e)},
+                {'error': 'Payment processing error. Please try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -242,7 +247,7 @@ class GiftCardCheckView(APIView):
             if not gift_card.is_valid:
                 return Response({
                     'valid': False,
-                    'error': 'This gift card is no longer valid',
+                    'error': 'This gift card is not valid',
                 })
 
             return Response({
@@ -252,7 +257,8 @@ class GiftCardCheckView(APIView):
             })
 
         except GiftCard.DoesNotExist:
-            return Response(
-                {'error': 'Gift card not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            # Return same response as invalid to prevent code enumeration
+            return Response({
+                'valid': False,
+                'error': 'This gift card is not valid',
+            })

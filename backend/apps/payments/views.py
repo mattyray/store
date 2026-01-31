@@ -156,8 +156,9 @@ class CreateCheckoutSessionView(APIView):
             })
 
         except stripe.error.StripeError as e:
+            logger.error(f"Stripe error during checkout: {e}")
             return Response(
-                {'error': str(e)},
+                {'error': 'Payment processing error. Please try again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -177,8 +178,13 @@ class StripeWebhookView(APIView):
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
         except ValueError:
+            logger.warning("Webhook received invalid payload")
             return HttpResponse(status=400)
         except stripe.error.SignatureVerificationError:
+            logger.warning(
+                f"Webhook signature verification failed from "
+                f"{request.META.get('REMOTE_ADDR')}"
+            )
             return HttpResponse(status=400)
 
         if event['type'] == 'checkout.session.completed':
@@ -267,6 +273,11 @@ class StripeWebhookView(APIView):
                     logger.exception("Gift card redemption failed")
 
             cart.items.all().delete()
+
+        logger.info(
+            f"Order {order.order_number} created - "
+            f"${order.total} - {order.customer_email}"
+        )
 
         # Send confirmation email (outside transaction — don't rollback
         # the order if email fails)
@@ -389,6 +400,11 @@ class StripeWebhookView(APIView):
             recipient_name=metadata.get('recipient_name', ''),
             message=metadata.get('message', ''),
             stripe_payment_intent=session.get('payment_intent', ''),
+        )
+
+        logger.info(
+            f"Gift card {gift_card.code} created - "
+            f"${amount} - recipient: {gift_card.recipient_email}"
         )
 
         # Send emails
