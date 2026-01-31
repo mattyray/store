@@ -26,7 +26,11 @@ def cleanup_old_wall_analyses(hours: int = 24):
     from .models import WallAnalysis, SavedMockup
 
     cutoff = timezone.now() - timedelta(hours=hours)
-    old_analyses = WallAnalysis.objects.filter(created_at__lt=cutoff)
+    # Exclude analyses that have saved mockups (shared links should persist)
+    old_analyses = WallAnalysis.objects.filter(
+        created_at__lt=cutoff,
+        saved_mockups__isnull=True,
+    )
 
     count = old_analyses.count()
     if count > 0:

@@ -163,6 +163,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.mockup.tasks.cleanup_old_wall_analyses',
         'schedule': 60 * 60 * 6,  # Every 6 hours
     },
+    'cleanup-stale-carts': {
+        'task': 'apps.orders.tasks.cleanup_stale_carts',
+        'schedule': 60 * 60 * 24,  # Daily
+    },
 }
 
 # AI Chat Agent

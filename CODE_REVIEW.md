@@ -275,7 +275,7 @@ Bugs and gaps found during verification of the above fixes.
 - **Why:** Social sharing is free marketing. Photo detail pages have images; the homepage should too.
 
 ### 37. Shared mockup links expire after 24 hours
-- **Status:** TODO
+- **Status:** DONE - Cleanup task now excludes `WallAnalysis` records that have saved mockups
 - **File:** `backend/apps/mockup/tasks.py` (cleanup_old_wall_analyses)
 - **What's wrong:** The cleanup task deletes `WallAnalysis` (cascading to `SavedMockup`) after 24 hours. But `SavedMockup.share_url` generates permanent-looking `/mockup/{id}` URLs. Shared links silently break the next day.
 - **Fix:** Either exclude `SavedMockup` records from cleanup (only delete analyses without saved mockups), or extend the TTL significantly for saved mockups, or show a friendly "expired" message instead of 404.
@@ -380,7 +380,7 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 - **Why:** Code cleanliness. Dead code confuses future maintainers.
 
 ### 50. No stale cart cleanup mechanism
-- **Status:** TODO
+- **Status:** DONE - Added `cleanup_stale_carts` Celery task (daily, 30-day TTL) and registered in `CELERY_BEAT_SCHEDULE`
 - **File:** `backend/apps/orders/models.py`
 - **What's wrong:** Every visitor creates a session and cart via `get_or_create_cart`. The mockup app has cleanup tasks, but carts and Django sessions accumulate indefinitely. Over months, `orders_cart`, `orders_cartitem`, and `django_session` tables grow without bound.
 - **Fix:** Add a periodic Celery task to delete carts older than N days (e.g., 30) that have no associated order.
