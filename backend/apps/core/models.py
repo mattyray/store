@@ -62,7 +62,7 @@ class GiftCard(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
 
     # Payment
-    stripe_payment_intent = models.CharField(max_length=200, blank=True, db_index=True)
+    stripe_payment_intent = models.CharField(max_length=200, blank=True, unique=True)
 
     class Meta:
         ordering = ['-purchased_at']
@@ -100,6 +100,12 @@ class GiftCard(models.Model):
             self.is_active = False
         self.save()
         return redeemable
+
+    def mark_sent(self):
+        """Mark gift card as sent to recipient."""
+        self.is_sent = True
+        self.sent_at = timezone.now()
+        self.save(update_fields=['is_sent', 'sent_at'])
 
     @property
     def is_valid(self):

@@ -290,7 +290,7 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 ### CRITICAL
 
 ### 38. Gift card purchase webhook has no idempotency check
-- **Status:** TODO
+- **Status:** DONE - Added `stripe_payment_intent` existence check + `unique=True` constraint with `IntegrityError` catch
 - **File:** `backend/apps/payments/views.py` (handle_gift_card_purchase, ~lines 386-403)
 - **What's wrong:** Unlike `handle_checkout_completed` (which checks for existing orders), the gift card purchase handler creates a new gift card on every webhook invocation with no duplicate check. The `stripe_payment_intent` is stored but never checked before creation. A replayed webhook creates a duplicate gift card, doubling the value delivered for a single payment.
 - **Fix:** Check for existing `GiftCard` with the same `stripe_payment_intent` before creating. Add `unique=True` to `GiftCard.stripe_payment_intent`.
@@ -313,7 +313,7 @@ New issues identified by a comprehensive code review agent. Covers security, rac
 ### HIGH
 
 ### 41. Silent failure on gift card email delivery
-- **Status:** TODO
+- **Status:** DONE - Replaced bare `except: pass` with `logger.exception()` for both gift card and purchase confirmation emails
 - **File:** `backend/apps/payments/views.py` (handle_gift_card_purchase, ~lines 410-420)
 - **What's wrong:** Both `send_gift_card_email` and the purchase confirmation email are wrapped in bare `except: pass`. If email delivery fails, the customer pays but the recipient never receives the gift card. No logging, no alert, no retry. Compare to order confirmation emails which at least log the failure.
 - **Fix:** Add `logger.exception(...)` at minimum. Consider a Celery retry task for failed deliveries.

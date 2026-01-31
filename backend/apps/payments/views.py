@@ -434,38 +434,51 @@ class StripeWebhookView(APIView):
     def handle_gift_card_purchase(self, session):
         """Create gift card from completed checkout session."""
         metadata = session.get('metadata', {})
+        payment_intent = session.get('payment_intent', '')
+
+        # Idempotency: skip if we already created a gift card for this payment
+        if payment_intent and GiftCard.objects.filter(
+            stripe_payment_intent=payment_intent
+        ).exists():
+            logger.info(f"Gift card already exists for payment {payment_intent}, skipping")
+            return
 
         amount = Decimal(metadata.get('amount', '0'))
         if amount <= 0:
             return
 
-        gift_card = GiftCard.objects.create(
-            initial_amount=amount,
-            remaining_balance=amount,
-            purchaser_email=metadata.get('purchaser_email', ''),
-            purchaser_name=metadata.get('purchaser_name', ''),
-            recipient_email=metadata.get('recipient_email', ''),
-            recipient_name=metadata.get('recipient_name', ''),
-            message=metadata.get('message', ''),
-            stripe_payment_intent=session.get('payment_intent', ''),
-        )
+        try:
+            gift_card = GiftCard.objects.create(
+                initial_amount=amount,
+                remaining_balance=amount,
+                purchaser_email=metadata.get('purchaser_email', ''),
+                purchaser_name=metadata.get('purchaser_name', ''),
+                recipient_email=metadata.get('recipient_email', ''),
+                recipient_name=metadata.get('recipient_name', ''),
+                message=metadata.get('message', ''),
+                stripe_payment_intent=payment_intent,
+            )
+        except IntegrityError:
+            # Secondary guard: unique constraint on stripe_payment_intent
+            logger.info(f"Duplicate gift card prevented by unique constraint for payment {payment_intent}")
+            return
 
         logger.info(
             f"Gift card {gift_card.code} created - "
             f"${amount} - recipient: {gift_card.recipient_email}"
         )
 
-        # Send emails
+        # Send emails (log failures instead of silently swallowing)
         try:
             send_gift_card_email(gift_card)
             gift_card.mark_sent()
         except Exception:
-            pass
+            logger.exception(f"Failed to send gift card email for {gift_card.code}")
 
         try:
             send_gift_card_purchase_confirmation(gift_card)
         except Exception:
-            pass
+            logger.exception(f"Failed to send purchase confirmation for gift card {gift_card.code}")
 
         # Add gift card purchaser to subscriber list
         if gift_card.purchaser_email:
