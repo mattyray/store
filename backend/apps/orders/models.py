@@ -96,7 +96,7 @@ class Order(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_number = models.CharField(max_length=20, unique=True, editable=False)
-    stripe_checkout_id = models.CharField(max_length=200, blank=True, db_index=True)
+    stripe_checkout_id = models.CharField(max_length=200, blank=True, unique=True)
     stripe_payment_intent = models.CharField(max_length=200, blank=True, db_index=True)
     customer_email = models.EmailField(db_index=True)
     customer_name = models.CharField(max_length=200)

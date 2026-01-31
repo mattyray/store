@@ -240,7 +240,7 @@ Bugs and gaps found during verification of the above fixes.
 - **What was wrong:** `handle_gift_card_purchase` called `gift_card.mark_sent()` but the method didn't exist. The `AttributeError` was silently swallowed by a bare `except: pass`, so `is_sent` and `sent_at` were never updated.
 
 ### 32. Webhook idempotency check is not atomic
-- **Status:** TODO
+- **Status:** DONE - Moved exists() check inside `transaction.atomic()`, added `unique=True` to `stripe_checkout_id` with `IntegrityError` catch as secondary guard
 - **File:** `backend/apps/payments/views.py` (handle_checkout_completed)
 - **What's wrong:** The `Order.objects.filter(stripe_checkout_id=...).exists()` check runs before `transaction.atomic()`. Two concurrent webhook retries can both pass the check and create duplicate orders. `stripe_checkout_id` is indexed but not unique.
 - **Fix:** Add `unique=True` to `stripe_checkout_id` on Order and catch `IntegrityError` as a secondary guard, or move the existence check inside the transaction.

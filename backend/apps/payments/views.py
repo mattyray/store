@@ -4,7 +4,7 @@ import stripe
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -216,11 +216,6 @@ class StripeWebhookView(APIView):
 
     def handle_checkout_completed(self, session):
         """Create order from completed checkout session."""
-        # Idempotency: skip if we already processed this session
-        if Order.objects.filter(stripe_checkout_id=session['id']).exists():
-            logger.info(f"Order already exists for session {session['id']}, skipping")
-            return
-
         metadata = session.get('metadata', {})
         cart_id = metadata.get('cart_id')
         if not cart_id:
@@ -235,56 +230,70 @@ class StripeWebhookView(APIView):
         address = shipping.get('address', {})
 
         # Wrap order creation, items, gift card redemption, and cart
-        # cleanup in a single transaction for data consistency
-        with transaction.atomic():
-            order = Order.objects.create(
-                stripe_checkout_id=session['id'],
-                stripe_payment_intent=session.get('payment_intent') or '',
-                customer_email=session.get('customer_details', {}).get('email', ''),
-                customer_name=shipping.get('name', ''),
-                shipping_address={
-                    'line1': address.get('line1', ''),
-                    'line2': address.get('line2', ''),
-                    'city': address.get('city', ''),
-                    'state': address.get('state', ''),
-                    'postal_code': address.get('postal_code', ''),
-                    'country': address.get('country', ''),
-                },
-                status='paid',
-                subtotal=cart.subtotal,
-                total=session.get('amount_total', 0) / 100,
-            )
+        # cleanup in a single transaction for data consistency.
+        # Idempotency check is inside the transaction so concurrent
+        # webhook retries can't both pass the check. The unique
+        # constraint on stripe_checkout_id is a secondary guard.
+        try:
+            with transaction.atomic():
+                # Idempotency: skip if we already processed this session
+                if Order.objects.filter(stripe_checkout_id=session['id']).exists():
+                    logger.info(f"Order already exists for session {session['id']}, skipping")
+                    return
 
-            # Use cart snapshot from metadata to ensure prices match what
-            # was charged. Fall back to live cart for older sessions.
-            snapshot_raw = metadata.get('cart_snapshot')
-            snapshot_items = json.loads(snapshot_raw) if snapshot_raw else None
+                order = Order.objects.create(
+                    stripe_checkout_id=session['id'],
+                    stripe_payment_intent=session.get('payment_intent') or '',
+                    customer_email=session.get('customer_details', {}).get('email', ''),
+                    customer_name=shipping.get('name', ''),
+                    shipping_address={
+                        'line1': address.get('line1', ''),
+                        'line2': address.get('line2', ''),
+                        'city': address.get('city', ''),
+                        'state': address.get('state', ''),
+                        'postal_code': address.get('postal_code', ''),
+                        'country': address.get('country', ''),
+                    },
+                    status='paid',
+                    subtotal=cart.subtotal,
+                    total=session.get('amount_total', 0) / 100,
+                )
 
-            if snapshot_items:
-                self._create_order_items_from_snapshot(order, snapshot_items)
-            else:
-                self._create_order_items_from_cart(order, cart)
+                # Use cart snapshot from metadata to ensure prices match what
+                # was charged. Fall back to live cart for older sessions.
+                snapshot_raw = metadata.get('cart_snapshot')
+                snapshot_items = json.loads(snapshot_raw) if snapshot_raw else None
 
-            # Gift card balance was already deducted at checkout creation
-            # time (with select_for_update to prevent double-spend).
-            # Here we just create the audit record.
-            gift_card_code = metadata.get('gift_card_code')
-            gift_card_amount = metadata.get('gift_card_amount')
-            if gift_card_code and gift_card_amount:
-                try:
-                    gift_card = GiftCard.objects.get(code=gift_card_code)
-                    amount = Decimal(gift_card_amount)
-                    GiftCardRedemption.objects.create(
-                        gift_card=gift_card,
-                        order=order,
-                        amount=amount,
-                    )
-                except GiftCard.DoesNotExist:
-                    logger.warning(f"Gift card {gift_card_code} not found during redemption")
-                except Exception:
-                    logger.exception("Gift card redemption failed")
+                if snapshot_items:
+                    self._create_order_items_from_snapshot(order, snapshot_items)
+                else:
+                    self._create_order_items_from_cart(order, cart)
 
-            cart.items.all().delete()
+                # Gift card balance was already deducted at checkout creation
+                # time (with select_for_update to prevent double-spend).
+                # Here we just create the audit record.
+                gift_card_code = metadata.get('gift_card_code')
+                gift_card_amount = metadata.get('gift_card_amount')
+                if gift_card_code and gift_card_amount:
+                    try:
+                        gift_card = GiftCard.objects.get(code=gift_card_code)
+                        amount = Decimal(gift_card_amount)
+                        GiftCardRedemption.objects.create(
+                            gift_card=gift_card,
+                            order=order,
+                            amount=amount,
+                        )
+                    except GiftCard.DoesNotExist:
+                        logger.warning(f"Gift card {gift_card_code} not found during redemption")
+                    except Exception:
+                        logger.exception("Gift card redemption failed")
+
+                cart.items.all().delete()
+        except IntegrityError:
+            # Secondary guard: unique constraint on stripe_checkout_id
+            # catches races the exists() check can't
+            logger.info(f"Duplicate order prevented by unique constraint for session {session['id']}")
+            return
 
         logger.info(
             f"Order {order.order_number} created - "
