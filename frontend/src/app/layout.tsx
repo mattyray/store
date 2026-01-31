@@ -23,6 +23,19 @@ export const metadata: Metadata = {
   title: "Matthew Raynor Photography | Fine Art Prints of the Hamptons",
   description: "Museum-quality fine art photography prints of the Hamptons. Limited edition aluminum and archival paper prints.",
   keywords: ["Hamptons photography", "fine art prints", "beach photography", "landscape photography", "Matthew Raynor"],
+  openGraph: {
+    title: "Matthew Raynor Photography",
+    description: "Museum-quality fine art photography prints of the Hamptons. Limited edition aluminum and archival paper prints.",
+    url: "https://store.matthewraynor.com",
+    siteName: "Matthew Raynor Photography",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Matthew Raynor Photography",
+    description: "Museum-quality fine art photography prints of the Hamptons.",
+  },
 };
 
 export default function RootLayout({
