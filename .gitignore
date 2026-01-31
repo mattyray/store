@@ -41,6 +41,9 @@ staticfiles/
 .env.local
 .env.*.local
 
+# MCP server config (contains auth tokens and DB credentials)
+.mcp.json
+
 # IDE
 .idea/
 .vscode/

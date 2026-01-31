@@ -4,6 +4,7 @@ Base Django settings for Photography Store.
 import os
 from pathlib import Path
 
+import sentry_sdk
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,6 +12,17 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ['SECRET_KEY']  # No default — crash on startup if missing
+
+# Sentry error tracking
+SENTRY_DSN = os.getenv('SENTRY_DSN', '')
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.1,
+        send_default_pii=False,
+        environment=os.getenv('SENTRY_ENVIRONMENT', 'production'),
+    )
 
 INSTALLED_APPS = [
     'django.contrib.admin',

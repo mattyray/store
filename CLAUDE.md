@@ -188,6 +188,10 @@ REDIS_URL=                # Railway Redis addon provides this
 # AI APIs
 ANTHROPIC_API_KEY=        # For Claude chat agent
 OPENAI_API_KEY=           # For embeddings (text-embedding-ada-002)
+
+# Error Tracking (Sentry)
+SENTRY_DSN=               # From Sentry Django project
+SENTRY_ENVIRONMENT=       # production / development
 ```
 
 ### Frontend (Netlify)
@@ -195,6 +199,10 @@ OPENAI_API_KEY=           # For embeddings (text-embedding-ada-002)
 NEXT_PUBLIC_API_URL=      # Public API URL (browser requests)
 INTERNAL_API_URL=         # Internal URL (server-side, Docker: http://backend:7974/api)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SENTRY_DSN=   # From Sentry Next.js project
+SENTRY_AUTH_TOKEN=        # For source map uploads
+SENTRY_ORG=               # Sentry org slug
+SENTRY_PROJECT=           # Sentry project slug
 ```
 
 ---
