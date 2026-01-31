@@ -26,10 +26,19 @@ logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+class CheckoutThrottle(AnonRateThrottle):
+    scope = 'checkout'
+
+
+class OrderLookupThrottle(AnonRateThrottle):
+    scope = 'order_lookup'
+
+
 class CreateCheckoutSessionView(APIView):
     """Create a Stripe Checkout session for the current cart."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [CheckoutThrottle]
 
     def post(self, request):
         cart = get_or_create_cart(request)
@@ -412,6 +421,7 @@ class OrderLookupView(APIView):
     """Look up order by Stripe session ID."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [OrderLookupThrottle]
 
     def get(self, request):
         session_id = request.query_params.get('session_id')

@@ -106,6 +106,11 @@ REST_FRAMEWORK = {
         'contact': '10/hour',          # Contact form: 10/hour per IP
         'chat': '30/hour',            # AI chat: 30 requests/hour per IP
         'uploads': '20/hour',          # File uploads: 20/hour per IP
+        'checkout': '20/hour',         # Stripe checkout: 20/hour per IP
+        'gift_card': '10/hour',        # Gift card purchase: 10/hour per IP
+        'gift_card_check': '15/hour',  # Gift card balance check: 15/hour per IP
+        'order_lookup': '20/hour',     # Order lookup by session: 20/hour per IP
+        'order_tracking': '10/hour',   # Order tracking: 10/hour per IP
     },
 }
 

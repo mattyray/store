@@ -19,6 +19,14 @@ class NewsletterThrottle(AnonRateThrottle):
 class ContactThrottle(AnonRateThrottle):
     scope = 'contact'
 
+
+class GiftCardThrottle(AnonRateThrottle):
+    scope = 'gift_card'
+
+
+class GiftCardCheckThrottle(AnonRateThrottle):
+    scope = 'gift_card_check'
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
@@ -139,6 +147,7 @@ class GiftCardPurchaseView(APIView):
     """Purchase a gift card."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [GiftCardThrottle]
 
     ALLOWED_AMOUNTS = [100, 250, 500, 1000, 2500]
 
@@ -216,6 +225,7 @@ class GiftCardCheckView(APIView):
     """Check gift card balance."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [GiftCardCheckThrottle]
 
     def post(self, request):
         code = request.data.get('code', '').strip().upper()

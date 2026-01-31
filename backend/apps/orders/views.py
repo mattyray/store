@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.catalog.models import ProductVariant, Product
@@ -137,10 +138,15 @@ class CartItemDetailView(APIView):
         return Response(CartSerializer(cart, context={'request': request}).data)
 
 
+class OrderTrackingThrottle(AnonRateThrottle):
+    scope = 'order_tracking'
+
+
 class OrderTrackingView(APIView):
     """Look up order by order number and email for customers."""
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [OrderTrackingThrottle]
 
     def post(self, request):
         """Look up order status."""
