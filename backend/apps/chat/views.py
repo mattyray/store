@@ -83,6 +83,15 @@ def chat_stream(request):
 
     Returns Server-Sent Events stream.
     """
+    # Rate limit: 30 chat requests per hour per IP
+    allowed, retry_after = _check_rate_limit(request, 'chat', 30, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many requests. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     body = parse_json_body(request)
 
     user_message = body.get('message', '').strip()
@@ -153,6 +162,15 @@ def chat_sync(request):
 
     Same input as chat_stream, but returns complete response as JSON.
     """
+    # Rate limit: shares the same 'chat' scope as streaming endpoint
+    allowed, retry_after = _check_rate_limit(request, 'chat', 30, 3600)
+    if not allowed:
+        return JsonResponse(
+            {'error': 'Too many requests. Please try again later.'},
+            status=429,
+            headers={'Retry-After': str(retry_after)},
+        )
+
     from .agent import run_agent_sync
 
     body = parse_json_body(request)
