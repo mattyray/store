@@ -22,6 +22,7 @@ if SENTRY_DSN:
         profiles_sample_rate=0.1,
         send_default_pii=False,
         environment=os.getenv('SENTRY_ENVIRONMENT', 'production'),
+        release=os.getenv('SENTRY_RELEASE'),
     )
 
 INSTALLED_APPS = [

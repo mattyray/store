@@ -31,6 +31,7 @@ if DATABASE_URL:
                 'PASSWORD': match.group('password'),
                 'HOST': match.group('host'),
                 'PORT': match.group('port'),
+                'CONN_MAX_AGE': 600,
             }
         }
 else:
@@ -42,6 +43,7 @@ else:
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 600,
         }
     }
 

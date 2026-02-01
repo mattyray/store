@@ -23,6 +23,23 @@ E-commerce website for fine art photography prints targeting the Hamptons luxury
 | Frontend Hosting | Netlify (with `@netlify/plugin-nextjs`) |
 | Backend Hosting | Railway (web + Celery worker + Redis) |
 | AI | Claude (chat agent), OpenAI (embeddings) |
+| Error Tracking | Sentry |
+
+---
+
+## Sentry
+
+| | |
+|---|---|
+| Organization | `matthew-raynor` |
+| Region URL | `https://us.sentry.io` |
+| Dashboard | https://matthew-raynor.sentry.io |
+| Team | `matthew-raynor` |
+
+| Project | Platform | Dashboard |
+|---------|----------|-----------|
+| `store-django` | Django | https://matthew-raynor.sentry.io/issues/?project=store-django |
+| `store-nextjs` | Next.js | https://matthew-raynor.sentry.io/issues/?project=store-nextjs |
 
 ---
 

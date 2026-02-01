@@ -5,6 +5,10 @@ echo "=== Starting Django server ==="
 echo "PORT: $PORT"
 echo "REDIS_URL: ${REDIS_URL:0:20}..."
 
+# Set Sentry release to current git commit (Railway provides RAILWAY_GIT_COMMIT_SHA)
+export SENTRY_RELEASE="${RAILWAY_GIT_COMMIT_SHA:-$(git rev-parse HEAD 2>/dev/null || echo 'unknown')}"
+echo "SENTRY_RELEASE: $SENTRY_RELEASE"
+
 echo "=== Running migrations ==="
 python manage.py migrate
 
